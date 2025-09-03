@@ -12,7 +12,7 @@ public class Config {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf().disable()      // disable CSRF for testing
+                .csrf().disable()
                 .authorizeHttpRequests((auth) -> auth.anyRequest().permitAll()); // allow all
         return http.build();
     }
