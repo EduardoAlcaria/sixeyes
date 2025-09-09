@@ -1,4 +1,4 @@
-package com.sixeyes.controller;
+package com.sixeyes;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
