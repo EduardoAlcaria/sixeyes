@@ -4,7 +4,6 @@ import libtorrent as lt
 import time
 import os
 import threading
-from datetime import datetime
 
 from TorrentEnum import Status
 
@@ -113,15 +112,6 @@ def resume_torrent():
         return jsonify({"success": True}), 200
     else:
         return jsonify({"error": "Torrent not resumed"}), 500
-
-@app.route('/private/stopTorrent', methods=['PUT'])
-def stop_torrent_thread(torrentG):
-    res = request.get_json()
-    torrent_infoHash = torrentInfoHash[res['id']]
-    handle = torrentHandles[torrent_infoHash]
-
-    if handle:
-        handle.auto_managed(False)
 
 
 if __name__ == "__main__":
