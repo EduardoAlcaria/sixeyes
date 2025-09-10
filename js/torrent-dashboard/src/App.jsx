@@ -13,11 +13,11 @@ import {
   Cell,
 } from 'recharts';
 
-// Constants
-const API_BASE_URL = 'http://localhost:9090';
-const POLLING_INTERVAL = 5000; // 5 seconds
 
-// Sample data for charts
+const API_BASE_URL = 'http://localhost:9090';
+const POLLING_INTERVAL = 5000; 
+
+
 const downloadSpeedData = [
   { time: '00:00', speed: 5.2 },
   { time: '00:05', speed: 8.1 },
@@ -36,7 +36,7 @@ const systemSpaceData = [
   { name: 'Available', value: 250, color: '#10b981' },
 ];
 
-// API Service
+
 const torrentService = {
   async addTorrent(magnetLink) {
     const response = await fetch(`${API_BASE_URL}/public/torrents/add`, {
@@ -67,7 +67,7 @@ const torrentService = {
   },
 
   async pauseTorrent(torrentId) {
-    const response = await fetch(`${API_BASE_URL}/api/torrents/${torrentId}/pause`, {
+    const response = await fetch(`${API_BASE_URL}/public/torrents/${torrentId}/pause`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -80,7 +80,7 @@ const torrentService = {
   },
 
   async resumeTorrent(torrentId) {
-    const response = await fetch(`${API_BASE_URL}/api/torrents/${torrentId}/resume`, {
+    const response = await fetch(`${API_BASE_URL}/public/torrents/${torrentId}/resume`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -93,7 +93,7 @@ const torrentService = {
   },
 
   async stopTorrent(torrentId) {
-    const response = await fetch(`${API_BASE_URL}/api/torrents/${torrentId}/stop`, {
+    const response = await fetch(`${API_BASE_URL}/public/torrents/${torrentId}/stop`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -106,7 +106,7 @@ const torrentService = {
   },
 
   async removeTorrent(torrentId) {
-    const response = await fetch(`${API_BASE_URL}/api/torrents/${torrentId}`, {
+    const response = await fetch(`${API_BASE_URL}/public/torrents/${torrentId}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -119,7 +119,7 @@ const torrentService = {
   }
 };
 
-// Utility functions
+
 const getStatusColor = (status) => {
   const colors = {
     Downloading: 'text-blue-400 bg-blue-400/10',
@@ -147,7 +147,7 @@ const parseSpeed = (speedString) => {
   return parseFloat(speedString.replace(" MB/s", ""));
 };
 
-// Components
+
 const TorrentCard = ({ torrent, onRemove, onPause, onResume, onStop }) => {
   const handlePauseResume = () => {
     if (torrent.status === 'Paused') {
@@ -482,10 +482,10 @@ const Dashboard = () => {
     }
   ]);
 
-  // Initialize with mock data since backend doesn't have GET endpoint yet
+
   useEffect(() => {
     if (torrents.length === 0) {
-      // Mock data for development
+      
       const mockTorrents = [
         {
           id: 1,
@@ -510,11 +510,11 @@ const Dashboard = () => {
           eta: null
         }
       ];
-      // setTorrents(mockTorrents); // Uncomment when you want to use mock data
+     
     }
   }, [torrents.length]);
 
-  // Calculate stats
+ 
   const downloadingTorrents = torrents.filter(t => t.status === 'Downloading');
   const seedingTorrents = torrents.filter(t => t.status === 'Seeding');
   
