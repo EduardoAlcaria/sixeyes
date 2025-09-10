@@ -1,16 +1,17 @@
 package com.sixeyes.controller;
 
 import com.sixeyes.model.Torrent;
+import com.sixeyes.model.TorrentStatus;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.lang.reflect.Array;
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.function.Consumer;
 
 @RestController
 @CrossOrigin({"http://localhost:5173/", "http://127.0.0.1:9999"})
@@ -23,8 +24,16 @@ public class TorrentController {
 
     @PostMapping("/add")
     public ResponseEntity<List<Torrent>> addTorrent(@RequestBody Torrent dto) {
+
+        if (dto.getMagnet() == null || !dto.getMagnet().startsWith("magnet:")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "the magnet is invalid");
+        }
+
         Torrent torrent = new Torrent(dto.getMagnet());
+        torrent.setId(1L);
         torrents.add(torrent);
+
+
 
         String flaskURL = "http://127.0.0.1:9999/private/downloadTorrent";
 
@@ -43,45 +52,74 @@ public class TorrentController {
         String flaskURL = "http://127.0.0.1:9999/private/getTorrentStats";
 
         ResponseEntity<Map> flaskResponce = restTemplate.getForEntity(flaskURL, Map.class);
-        System.out.println(flaskResponce);
         Set keys = flaskResponce.getBody().keySet();
 
 
-        for (Object key : keys) {
-            if (key.equals("id")) {
-                torrent.setId((Long) flaskResponce.getBody().get(key));
-            }
-            if (key.equals("title")) {
-                torrent.setTitle((String) flaskResponce.getBody().get(key));
-            }
-            if (key.equals("magnet")) {
-                torrent.setMagnet((String) flaskResponce.getBody().get(key));
-            }
-            if (key.equals("infoHash")) {
-                torrent.setInfoHash((String) flaskResponce.getBody().get(key));
-            }
+        Map<String, Consumer<Object>> setters = Map.of(
+                "title", v -> torrent.setTitle((String) v),
+                "magnet", v -> torrent.setMagnet((String) v),
+                "infoHash", v -> torrent.setInfoHash((String) v),
+                "progress", torrent::setProgress,
+                "downloadSpeed", v -> torrent.setDownloadSpeed(String.valueOf(v)),
+                "uploadSpeed", v -> torrent.setUploadSpeed(String.valueOf(v)),
+                "peers", v -> torrent.setPeers((Integer) v),
+                "eta", v -> torrent.setEta((String) v),
+                "status", v -> torrent.setStatus((String) v)
+        );
 
-            if (key.equals("progress")) {
-                torrent.setProgress((Double) flaskResponce.getBody().get(key));
-            }
-            if (key.equals("downloadSpeed")) {
-                torrent.setDownloadSpeed((String) flaskResponce.getBody().get(key));
-            }
-            if (key.equals("uploadSpeed")) {
-                torrent.setUploadSpeed((String) flaskResponce.getBody().get(key));
-            }
-            if (key.equals("peers")) {
-                torrent.setPeers((Integer) flaskResponce.getBody().get(key));
-            }
-            if (key.equals("eta")) {
-                torrent.setEta((String) flaskResponce.getBody().get(key));
-            }
 
+
+        keys.forEach(key -> {
+                Object value = flaskResponce.getBody().get(key);
+                Consumer<Object> setter = setters.get(key);
+                if (setter != null){
+                    setter.accept(value);
+                }
+        });
+
+        if (torrent.getProgress() >= 100){
+            torrent.setStatus(TorrentStatus.SEEDING.getValue());
         }
-
+        System.out.println("Status: " + torrents.getFirst().getStatus());
         System.out.println(torrents);
 
         return ResponseEntity.ok(torrents);
     }
 
+    @PutMapping("{torrentId}/pause")
+    public ResponseEntity<List<Torrent>> pauseTorrent(@PathVariable("torrentId") Long id) {
+        System.out.println("pause torrent");
+
+        int i = 0;
+        for (Torrent torrent : torrents) {
+            if (torrent.getId().equals(id)){
+                torrent.setStatus(TorrentStatus.PAUSED.getValue());
+                i = torrents.indexOf(torrent);
+
+            }
+        }
+
+
+        String flaskURL = "http://127.0.0.1:9999/private/pausedTorrent";
+        restTemplate.put(flaskURL,torrents.get(i));
+        return ResponseEntity.ok(torrents);
+    }
+
+    @PutMapping("{torrentId}/resume")
+    public ResponseEntity<List<Torrent>> resumeTorrent(@PathVariable("torrentId") Long id){
+        System.out.println("Resume torrent");
+
+        int i = 0;
+        for (Torrent torrent : torrents) {
+            if (torrent.getId().equals(id)){
+                torrent.setStatus(TorrentStatus.PAUSED.getValue());
+                i = torrents.indexOf(torrent);
+
+            }
+        }
+
+        String flaskURL = "http://127.0.0.1:9999/private/resumeTorrent";
+        restTemplate.put(flaskURL,torrents.get(i));
+        return ResponseEntity.ok(torrents);
+    }
 }

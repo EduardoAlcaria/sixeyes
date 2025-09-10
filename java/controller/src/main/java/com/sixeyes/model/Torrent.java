@@ -1,9 +1,7 @@
 package com.sixeyes.model;
 
 
-
 import jakarta.persistence.*;
-import org.libtorrent4j.TorrentHandle;
 
 
 import java.text.DecimalFormat;
@@ -28,13 +26,12 @@ public class Torrent {
     private String infoHash;
 
 
-
-
     private Double progress = 0.0;
     private String downloadSpeed = "0 MB/s";
     private String uploadSpeed = "0 MB/s";
     private Integer peers = 0;
     private String eta;
+    private String status;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -42,23 +39,12 @@ public class Torrent {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
 
-    public Torrent() {}
+    public Torrent() {
+    }
 
     @Override
     public String toString() {
-        return "Torrent{" +
-                "id=" + id +
-                ", title='" + title + '\'' +
-                ", magnet='" + magnet + '\'' +
-                ", infoHash='" + infoHash + '\'' +
-                ", progress=" + progress +
-                ", downloadSpeed='" + downloadSpeed + '\'' +
-                ", uploadSpeed='" + uploadSpeed + '\'' +
-                ", peers=" + peers +
-                ", eta='" + eta + '\'' +
-                ", createdAt=" + createdAt +
-                ", updatedAt=" + updatedAt +
-                '}';
+        return "Torrent{" + "id=" + id + ", title='" + title + '\'' + ", magnet='" + magnet + '\'' + ", infoHash='" + infoHash + '\'' + ", progress=" + progress + ", downloadSpeed='" + downloadSpeed + '\'' + ", uploadSpeed='" + uploadSpeed + '\'' + ", peers=" + peers + ", eta='" + eta + '\'' + ", createdAt=" + createdAt + ", updatedAt=" + updatedAt + '}';
     }
 
     public Torrent(String title, String magnet, String infoHash) {
@@ -69,6 +55,14 @@ public class Torrent {
 
     public Torrent(String magnet) {
         this.magnet = magnet;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public Long getId() {
@@ -108,7 +102,7 @@ public class Torrent {
         return progress;
     }
 
-    public void setProgress(Double progress) {
+    public void setProgress(Object progress) {
         DecimalFormat decimalFormat = new DecimalFormat("#.##");
         this.progress = Double.parseDouble(decimalFormat.format(progress));
     }
@@ -118,7 +112,7 @@ public class Torrent {
     }
 
     public void setDownloadSpeed(String downloadSpeed) {
-        this.downloadSpeed = downloadSpeed;
+        this.downloadSpeed = String.format("%.2f", Double.parseDouble(downloadSpeed)) + "MB/s";
     }
 
     public String getUploadSpeed() {
@@ -126,7 +120,9 @@ public class Torrent {
     }
 
     public void setUploadSpeed(String uploadSpeed) {
-        this.uploadSpeed = uploadSpeed;
+        String string = String.format("%.2f", Double.parseDouble(uploadSpeed)) + "MB/s";
+        System.out.println("setUploadSpeed " + string);
+        this.uploadSpeed = string;
     }
 
     public Integer getPeers() {
