@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   LineChart,
   Line,
@@ -12,6 +12,10 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+
+// Constants
+const API_BASE_URL = 'http://localhost:9090';
+const POLLING_INTERVAL = 5000; // 5 seconds
 
 // Sample data for charts
 const downloadSpeedData = [
@@ -32,44 +36,136 @@ const systemSpaceData = [
   { name: 'Available', value: 250, color: '#10b981' },
 ];
 
+// API Service
+const torrentService = {
+  async addTorrent(magnetLink) {
+    const response = await fetch(`${API_BASE_URL}/public/torrents/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ magnet: magnetLink }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return await response.json();
+   
+  },
+
+  async getTorrents() {
+    const response = await fetch(`${API_BASE_URL}/public/torrents/get`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  },
+
+  async pauseTorrent(torrentId) {
+    const response = await fetch(`${API_BASE_URL}/api/torrents/${torrentId}/pause`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  },
+
+  async resumeTorrent(torrentId) {
+    const response = await fetch(`${API_BASE_URL}/api/torrents/${torrentId}/resume`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  },
+
+  async stopTorrent(torrentId) {
+    const response = await fetch(`${API_BASE_URL}/api/torrents/${torrentId}/stop`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  },
+
+  async removeTorrent(torrentId) {
+    const response = await fetch(`${API_BASE_URL}/api/torrents/${torrentId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  }
+};
+
+// Utility functions
+const getStatusColor = (status) => {
+  const colors = {
+    Downloading: 'text-blue-400 bg-blue-400/10',
+    Seeding: 'text-emerald-400 bg-emerald-400/10',
+    Paused: 'text-yellow-400 bg-yellow-400/10',
+    Error: 'text-red-400 bg-red-400/10',
+    Stopped: 'text-gray-400 bg-gray-400/10',
+  };
+  return colors[status] || 'text-gray-400 bg-gray-400/10';
+};
+
+const getProgressColor = (status) => {
+  const colors = {
+    Downloading: 'bg-blue-500',
+    Seeding: 'bg-emerald-500',
+    Paused: 'bg-yellow-500',
+    Error: 'bg-red-500',
+    Stopped: 'bg-gray-500',
+  };
+  return colors[status] || 'bg-gray-500';
+};
+
+const parseSpeed = (speedString) => {
+  if (!speedString || typeof speedString !== "string") return 0;
+  return parseFloat(speedString.replace(" MB/s", ""));
+};
+
+// Components
 const TorrentCard = ({ torrent, onRemove, onPause, onResume, onStop }) => {
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Downloading': return 'text-blue-400 bg-blue-400/10';
-      case 'Seeding': return 'text-emerald-400 bg-emerald-400/10';
-      case 'Paused': return 'text-yellow-400 bg-yellow-400/10';
-      case 'Error': return 'text-red-400 bg-red-400/10';
-      case 'Stopped': return 'text-gray-400 bg-gray-400/10';
-      default: return 'text-gray-400 bg-gray-400/10';
-    }
-  };
-
-  const getProgressColor = (status) => {
-    switch (status) {
-      case 'Downloading': return 'bg-blue-500';
-      case 'Seeding': return 'bg-emerald-500';
-      case 'Paused': return 'bg-yellow-500';
-      case 'Error': return 'bg-red-500';
-      case 'Stopped': return 'bg-gray-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
   const handlePauseResume = () => {
     if (torrent.status === 'Paused') {
       onResume(torrent.id);
-    } else if (torrent.status === 'Downloading' || torrent.status === 'Seeding') {
+    } else if (['Downloading', 'Seeding'].includes(torrent.status)) {
       onPause(torrent.id);
     }
   };
 
-  const canPauseResume = torrent.status === 'Downloading' || torrent.status === 'Seeding' || torrent.status === 'Paused';
-  const canStop = torrent.status !== 'Stopped' && torrent.status !== 'Error';
+  const canPauseResume = ['Downloading', 'Seeding', 'Paused'].includes(torrent.status);
+  const canStop = !['Stopped', 'Error'].includes(torrent.status);
 
   return (
     <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/90 backdrop-blur-lg border border-white/10 rounded-2xl p-4 hover:border-white/20 transition-all duration-300">
       <div className="flex justify-between items-start mb-3">
-        <h3 className="text-white font-semibold text-sm truncate flex-1 mr-2">{torrent.title}</h3>
+        <h3 className="text-white font-semibold text-sm truncate flex-1 mr-2">
+          {torrent.title}
+        </h3>
         <div className="flex gap-1 flex-shrink-0">
           {canPauseResume && (
             <button 
@@ -115,7 +211,7 @@ const TorrentCard = ({ torrent, onRemove, onPause, onResume, onStop }) => {
           <div 
             className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(torrent.status)}`} 
             style={{width: `${torrent.progress}%`}}
-          ></div>
+          />
         </div>
       </div>
 
@@ -143,49 +239,53 @@ const TorrentCard = ({ torrent, onRemove, onPause, onResume, onStop }) => {
   );
 };
 
-const AddTorrentCard = ({ onAdd }) => {
+const AddTorrentCard = ({ onAdd, isLoading }) => {
   const [showForm, setShowForm] = useState(false);
   const [torrentUrl, setTorrentUrl] = useState('');
 
-  const handleSubmit = (e) => {
-    if (torrentUrl.trim()) {
-      onAdd(torrentUrl.trim());
+  const handleSubmit = () => {
+    const url = torrentUrl.trim();
+    if (url) {
+      onAdd(url);
       setTorrentUrl('');
       setShowForm(false);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSubmit();
     }
   };
 
   if (showForm) {
     return (
       <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/90 backdrop-blur-lg border border-white/10 rounded-2xl p-4">
-        <div>
-          <input
-            type="text"
-            value={torrentUrl}
-            onChange={(e) => setTorrentUrl(e.target.value)}
-            placeholder="Enter torrent URL or magnet link..."
-            className="w-full bg-slate-700/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm mb-3 focus:outline-none focus:border-blue-400"
-            autoFocus
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                handleSubmit(e);
-              }
-            }}
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={handleSubmit}
-              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg text-sm transition-colors"
-            >
-              Add Torrent
-            </button>
-            <button
-              onClick={() => {setShowForm(false); setTorrentUrl('');}}
-              className="px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm"
-            >
-              Cancel
-            </button>
-          </div>
+        <input
+          type="text"
+          value={torrentUrl}
+          onChange={(e) => setTorrentUrl(e.target.value)}
+          placeholder="Enter torrent URL or magnet link..."
+          className="w-full bg-slate-700/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm mb-3 focus:outline-none focus:border-blue-400"
+          autoFocus
+          onKeyPress={handleKeyPress}
+          disabled={isLoading}
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={handleSubmit}
+            disabled={isLoading}
+            className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white py-2 px-4 rounded-lg text-sm transition-colors"
+          >
+            {isLoading ? 'Adding...' : 'Add Torrent'}
+          </button>
+          <button
+            onClick={() => {setShowForm(false); setTorrentUrl('');}}
+            disabled={isLoading}
+            className="px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm"
+          >
+            Cancel
+          </button>
         </div>
       </div>
     );
@@ -204,24 +304,6 @@ const AddTorrentCard = ({ onAdd }) => {
   );
 };
 
-const CompletedTorrentsList = ({ completedTorrents }) => (
-  <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/90 backdrop-blur-lg border border-white/10 rounded-2xl p-4 h-full">
-    <h3 className="text-white font-bold text-lg mb-4">Completed Downloads</h3>
-    <div className="space-y-3 overflow-y-auto custom-scrollbar max-h-80">
-      {completedTorrents.map((torrent) => (
-        <div key={torrent.id} className="flex items-center gap-3 p-2 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors">
-          <div className="w-2 h-2 bg-emerald-500 rounded-full flex-shrink-0"></div>
-          <div className="flex-1 min-w-0">
-            <div className="text-white text-sm font-medium truncate">{torrent.title}</div>
-            <div className="text-gray-400 text-xs">{torrent.size} • {torrent.completedAt}</div>
-          </div>
-          <div className="text-emerald-400 text-xs flex-shrink-0">✓</div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
 const SystemStatsCard = ({ title, value, subtitle, color }) => (
   <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/90 backdrop-blur-lg border border-white/10 rounded-2xl p-4">
     <h3 className="text-white font-bold text-sm mb-2">{title}</h3>
@@ -230,153 +312,142 @@ const SystemStatsCard = ({ title, value, subtitle, color }) => (
   </div>
 );
 
+const LoadingOverlay = ({ message = 'Loading...' }) => (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="bg-slate-800 rounded-lg p-6 text-white text-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4" />
+      <p>{message}</p>
+    </div>
+  </div>
+);
 
-const torrentAPI = {
+const useTorrents = () => {
+  const [torrents, setTorrents] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  addTorrent: async (magnetLink) => {
+  const handleError = useCallback((error, action) => {
+    console.error(`Failed to ${action}:`, error);
+    setError(`Failed to ${action}: ${error.message}`);
+    setTimeout(() => setError(null), 5000);
+  }, []);
+
+  const loadTorrents = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:9090/api/torrents', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ magnetLink }),
-      });
-      return await response.json();
+      const data = await torrentService.getTorrents();
+      setTorrents(data);
     } catch (error) {
-      console.error('Error adding torrent:', error);
-      throw error;
+      handleError(error, 'load torrents');
     }
-  },
+  }, [handleError]);
 
-  // Pause a torrent
-  pauseTorrent: async (torrentId) => {
-    try {
-      const response = await fetch(`/api/torrents/${torrentId}/pause`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      return await response.json();
-    } catch (error) {
-      console.error('Error pausing torrent:', error);
-      throw error;
-    }
-  },
 
-  // Resume a torrent
-  resumeTorrent: async (torrentId) => {
-    try {
-      const response = await fetch(`/api/torrents/${torrentId}/resume`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      return await response.json();
-    } catch (error) {
-      console.error('Error resuming torrent:', error);
-      throw error;
-    }
-  },
+  useEffect(() => {
+   
+    loadTorrents();
 
-  // Stop a torrent
-  stopTorrent: async (torrentId) => {
-    try {
-      const response = await fetch(`/api/torrents/${torrentId}/stop`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      return await response.json();
-    } catch (error) {
-      console.error('Error stopping torrent:', error);
-      throw error;
-    }
-  },
+    
+    const interval = setInterval(() => {
+      loadTorrents();
+    }, POLLING_INTERVAL);
 
-  // Remove/delete a torrent
-  removeTorrent: async (torrentId) => {
-    try {
-      const response = await fetch(`/api/torrents/${torrentId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      return await response.json();
-    } catch (error) {
-      console.error('Error removing torrent:', error);
-      throw error;
-    }
-  },
+   
+    return () => clearInterval(interval);
+  }, [loadTorrents]);
 
-  // Get all torrents status
-  getTorrents: async () => {
+  const addTorrent = useCallback(async (magnetLink) => {
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/torrents', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      return await response.json();
+      const data = await torrentService.addTorrent(magnetLink);
+      setTorrents(prev => [...prev, data]);
+      setError(null);
     } catch (error) {
-      console.error('Error fetching torrents:', error);
-      throw error;
+      handleError(error, 'add torrent');
+    } finally {
+      setIsLoading(false);
     }
-  },
+  }, [handleError]);
+
+  const updateTorrentStatus = useCallback((id, updates) => {
+    setTorrents(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+  }, []);
+
+  const pauseTorrent = useCallback(async (id) => {
+    try {
+      await torrentService.pauseTorrent(id);
+      updateTorrentStatus(id, { 
+        status: 'Paused', 
+        downloadSpeed: '0 MB/s', 
+        uploadSpeed: '0 MB/s', 
+        eta: null 
+      });
+    } catch (error) {
+      handleError(error, 'pause torrent');
+    }
+  }, [handleError, updateTorrentStatus]);
+
+  const resumeTorrent = useCallback(async (id) => {
+    try {
+      await torrentService.resumeTorrent(id);
+      const torrent = torrents.find(t => t.id === id);
+      updateTorrentStatus(id, { 
+        status: torrent?.progress === 100 ? 'Seeding' : 'Downloading', 
+        eta: torrent?.progress < 100 ? 'Calculating...' : null 
+      });
+    } catch (error) {
+      handleError(error, 'resume torrent');
+    }
+  }, [handleError, updateTorrentStatus, torrents]);
+
+  const stopTorrent = useCallback(async (id) => {
+    try {
+      await torrentService.stopTorrent(id);
+      updateTorrentStatus(id, { 
+        status: 'Stopped', 
+        downloadSpeed: '0 MB/s', 
+        uploadSpeed: '0 MB/s', 
+        eta: null 
+      });
+    } catch (error) {
+      handleError(error, 'stop torrent');
+    }
+  }, [handleError, updateTorrentStatus]);
+
+  const removeTorrent = useCallback(async (id) => {
+    try {
+      await torrentService.removeTorrent(id);
+      setTorrents(prev => prev.filter(t => t.id !== id));
+    } catch (error) {
+      handleError(error, 'remove torrent');
+    }
+  }, [handleError]);
+
+  return {
+    torrents,
+    isLoading,
+    error,
+    addTorrent,
+    pauseTorrent,
+    resumeTorrent,
+    stopTorrent,
+    removeTorrent,
+    loadTorrents
+  };
 };
 
+
 const Dashboard = () => {
-  const [torrents, setTorrents] = useState([
-    {
-      id: 1,
-      title: "Ubuntu 22.04.3 Desktop amd64.iso",
-      status: "Downloading",
-      progress: 65,
-      size: "4.7 GB",
-      downloadSpeed: "15.2 MB/s",
-      uploadSpeed: "2.1 MB/s",
-      peers: 124,
-      eta: "12m 34s"
-    },
-    {
-      id: 2,
-      title: "Big Buck Bunny 4K",
-      status: "Seeding",
-      progress: 100,
-      size: "2.1 GB",
-      downloadSpeed: "0 MB/s",
-      uploadSpeed: "5.8 MB/s",
-      peers: 45,
-      eta: null
-    },
-    {
-      id: 3,
-      title: "Debian 12 netinst",
-      status: "Stopped",
-      progress: 45,
-      size: "1.2 GB",
-      downloadSpeed: "0 MB/s",
-      uploadSpeed: "0 MB/s",
-      peers: 0,
-      eta: null
-    },
-    {
-      id: 4,
-      title: "Linux Mint 21.2 Cinnamon",
-      status: "Downloading",
-      progress: 89,
-      size: "2.8 GB",
-      downloadSpeed: "8.9 MB/s",
-      uploadSpeed: "1.2 MB/s",
-      peers: 67,
-      eta: "3m 15s"
-    }
-  ]);
+  const {
+    torrents,
+    isLoading,
+    error,
+    addTorrent,
+    pauseTorrent,
+    resumeTorrent,
+    stopTorrent,
+    removeTorrent,
+    loadTorrents
+  } = useTorrents();
 
   const [completedTorrents] = useState([
     {
@@ -411,122 +482,80 @@ const Dashboard = () => {
     }
   ]);
 
-  // Torrent control functions with API calls
-  const addTorrent = async (magnetLink) => {
-    try {
-      // Call API to add torrent to backend
-      const result = await torrentAPI.addTorrent(magnetLink);
-      
-      // Add to local state (in real app, you'd get the torrent data from API response)
-      const newTorrent = {
-        id: result.id || Date.now(),
-        title: result.title || `New Torrent ${torrents.length + 1}`,
-        status: "Downloading",
-        progress: 0,
-        size: result.size || "Unknown",
-        downloadSpeed: "0 MB/s",
-        uploadSpeed: "0 MB/s",
-        peers: 0,
-        eta: "Calculating..."
-      };
-      setTorrents([...torrents, newTorrent]);
-    } catch (error) {
-      console.error('Failed to add torrent:', error);
-      // Show error message to user
-      alert('Failed to add torrent. Please try again.');
+  // Initialize with mock data since backend doesn't have GET endpoint yet
+  useEffect(() => {
+    if (torrents.length === 0) {
+      // Mock data for development
+      const mockTorrents = [
+        {
+          id: 1,
+          title: "Ubuntu 22.04.3 Desktop amd64.iso",
+          status: "Downloading",
+          progress: 65,
+          size: "4.7 GB",
+          downloadSpeed: "15.2 MB/s",
+          uploadSpeed: "2.1 MB/s",
+          peers: 124,
+          eta: "12m 34s"
+        },
+        {
+          id: 2,
+          title: "Big Buck Bunny 4K",
+          status: "Seeding",
+          progress: 100,
+          size: "2.1 GB",
+          downloadSpeed: "0 MB/s",
+          uploadSpeed: "5.8 MB/s",
+          peers: 45,
+          eta: null
+        }
+      ];
+      // setTorrents(mockTorrents); // Uncomment when you want to use mock data
     }
-  };
+  }, [torrents.length]);
 
-  const pauseTorrent = async (id) => {
-    try {
-      await torrentAPI.pauseTorrent(id);
-      setTorrents(torrents.map(t => 
-        t.id === id 
-          ? { ...t, status: 'Paused', downloadSpeed: '0 MB/s', uploadSpeed: '0 MB/s', eta: null }
-          : t
-      ));
-    } catch (error) {
-      console.error('Failed to pause torrent:', error);
-      alert('Failed to pause torrent. Please try again.');
-    }
-  };
-
-  const resumeTorrent = async (id) => {
-    try {
-      await torrentAPI.resumeTorrent(id);
-      setTorrents(torrents.map(t => 
-        t.id === id 
-          ? { ...t, status: t.progress === 100 ? 'Seeding' : 'Downloading', eta: t.progress < 100 ? 'Calculating...' : null }
-          : t
-      ));
-    } catch (error) {
-      console.error('Failed to resume torrent:', error);
-      alert('Failed to resume torrent. Please try again.');
-    }
-  };
-
-  const stopTorrent = async (id) => {
-    try {
-      await torrentAPI.stopTorrent(id);
-      setTorrents(torrents.map(t => 
-        t.id === id 
-          ? { ...t, status: 'Stopped', downloadSpeed: '0 MB/s', uploadSpeed: '0 MB/s', eta: null }
-          : t
-      ));
-    } catch (error) {
-      console.error('Failed to stop torrent:', error);
-      alert('Failed to stop torrent. Please try again.');
-    }
-  };
-
-  const removeTorrent = async (id) => {
-    try {
-      await torrentAPI.removeTorrent(id);
-      setTorrents(torrents.filter(t => t.id !== id));
-    } catch (error) {
-      console.error('Failed to remove torrent:', error);
-      alert('Failed to remove torrent. Please try again.');
-    }
-  };
-
-  const totalDownloadSpeed = torrents
-    .filter(t => t.status === 'Downloading')
-    .reduce((sum, t) => sum + parseFloat(t.downloadSpeed.replace(' MB/s', '') || 0), 0);
-
+  // Calculate stats
+  const downloadingTorrents = torrents.filter(t => t.status === 'Downloading');
+  const seedingTorrents = torrents.filter(t => t.status === 'Seeding');
+  
+  const totalDownloadSpeed = downloadingTorrents
+    .reduce((sum, t) => sum + parseSpeed(t.downloadSpeed), 0);
+  
   const totalUploadSpeed = torrents
-    .reduce((sum, t) => sum + parseFloat(t.uploadSpeed.replace(' MB/s', '') || 0), 0);
+    .reduce((sum, t) => sum + parseSpeed(t.uploadSpeed), 0);
 
   return (
     <div className="min-h-screen w-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 overflow-x-hidden">
+      {isLoading && <LoadingOverlay message="Adding torrent..." />}
+      
       <div className="w-full h-full p-4 lg:p-6">
-        {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-white mb-2">Torrent Manager</h1>
           <p className="text-gray-400 text-sm">Monitor and manage your torrent downloads</p>
+          {error && (
+            <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+              {error}
+            </div>
+          )}
         </div>
 
-        {/* Main Layout */}
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 w-full">
-          
-          {/* Left Section - Torrent Cards */}
           <div className="flex-1 lg:flex-[3] space-y-4 w-full">
-            {/* System Stats Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
               <SystemStatsCard
                 title="Total Download"
                 value={`${totalDownloadSpeed.toFixed(1)} MB/s`}
-                subtitle={`${torrents.filter(t => t.status === 'Downloading').length} active downloads`}
+                subtitle={`${downloadingTorrents.length} active downloads`}
                 color="text-emerald-400"
               />
               <SystemStatsCard
                 title="Total Upload"
                 value={`${totalUploadSpeed.toFixed(1)} MB/s`}
-                subtitle={`${torrents.filter(t => t.status === 'Seeding').length} seeding`}
+                subtitle={`${seedingTorrents.length} seeding`}
                 color="text-blue-400"
               />
             </div>
 
-            {/* Torrent Cards Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4 w-full">
               {torrents.map((torrent) => (
                 <TorrentCard 
@@ -538,14 +567,11 @@ const Dashboard = () => {
                   onStop={stopTorrent}
                 />
               ))}
-              <AddTorrentCard onAdd={addTorrent} />
+              <AddTorrentCard onAdd={addTorrent} isLoading={isLoading} />
             </div>
           </div>
 
-          {/* Right Section - Charts and Completed */}
           <div className="w-full lg:w-80 xl:w-96 flex-shrink-0 space-y-4">
-            
-            {/* Download Speed Chart */}
             <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/90 backdrop-blur-lg border border-white/10 rounded-2xl p-4 w-full">
               <h3 className="text-white font-bold text-sm mb-3">Download Speed</h3>
               <div className="h-32 w-full">
@@ -572,7 +598,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* System Space Chart */}
             <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/90 backdrop-blur-lg border border-white/10 rounded-2xl p-4 w-full">
               <h3 className="text-white font-bold text-sm mb-3">Storage Space</h3>
               <div className="flex items-center justify-center mb-3">
@@ -608,13 +633,12 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Completed Torrents */}
             <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/90 backdrop-blur-lg border border-white/10 rounded-2xl p-4 w-full">
               <h3 className="text-white font-bold text-sm mb-3">Completed Downloads</h3>
               <div className="space-y-2 overflow-y-auto custom-scrollbar max-h-60">
                 {completedTorrents.map((torrent) => (
                   <div key={torrent.id} className="flex items-center gap-2 p-2 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors">
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full flex-shrink-0"></div>
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="text-white text-xs font-medium truncate">{torrent.title}</div>
                       <div className="text-gray-400 text-xs">{torrent.size} • {torrent.completedAt}</div>
@@ -624,12 +648,11 @@ const Dashboard = () => {
                 ))}
               </div>
             </div>
-            
           </div>
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;
         }
