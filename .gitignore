@@ -1,0 +1,18 @@
+HELP.md
+target/
+D:\programming_WINDOWS_ONLY\projects\sixeyes\java\controller\.mvn\wrapper
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+
+### IntelliJ IDEA ###
+D:\programming_WINDOWS_ONLY\projects\sixeyes\java\controller\.idea
+*.iws
+*.iml
+*.ipr
+D:\programming_WINDOWS_ONLY\projects\sixeyes\java\controller\target
+
+
+
+### VS Code ###
+.vscode/
