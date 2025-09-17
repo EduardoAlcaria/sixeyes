@@ -14,8 +14,8 @@ import java.util.*;
 import java.util.function.Consumer;
 
 @RestController
-@CrossOrigin({"http://localhost:5173/", "http://127.0.0.1:9999"})
-@RequestMapping("/public/torrents/")
+@CrossOrigin({"http://localhost:3000", "http://127.0.0.1:9999", "http://localhost:9000"})
+@RequestMapping("/spring/torrents")
 public class TorrentController {
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -35,7 +35,7 @@ public class TorrentController {
 
 
 
-        String flaskURL = "http://127.0.0.1:9999/private/downloadTorrent";
+        String flaskURL = "http://127.0.0.1:9999/python/downloadTorrent";
 
         HttpEntity<Torrent> torrentHttpEntity = new HttpEntity<>(torrent, new HttpHeaders());
         ResponseEntity<Map> flaskResponce = restTemplate.postForEntity(flaskURL, torrentHttpEntity, Map.class);
@@ -49,7 +49,7 @@ public class TorrentController {
     public ResponseEntity<List<Torrent>> getAllTorrents() {
         Torrent torrent = torrents.getFirst();
 
-        String flaskURL = "http://127.0.0.1:9999/private/getTorrentStats";
+        String flaskURL = "http://127.0.0.1:9999/python/getTorrentStats";
 
         ResponseEntity<Map> flaskResponce = restTemplate.getForEntity(flaskURL, Map.class);
         Set keys = flaskResponce.getBody().keySet();
@@ -100,7 +100,7 @@ public class TorrentController {
         }
 
 
-        String flaskURL = "http://127.0.0.1:9999/private/pausedTorrent";
+        String flaskURL = "http://127.0.0.1:9999/python/pausedTorrent";
         restTemplate.put(flaskURL,torrents.get(i));
         return ResponseEntity.ok(torrents);
     }
@@ -118,7 +118,7 @@ public class TorrentController {
             }
         }
 
-        String flaskURL = "http://127.0.0.1:9999/private/resumeTorrent";
+        String flaskURL = "http://127.0.0.1:9999/python/resumeTorrent";
         restTemplate.put(flaskURL,torrents.get(i));
         return ResponseEntity.ok(torrents);
     }
