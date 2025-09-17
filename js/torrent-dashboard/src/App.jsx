@@ -106,7 +106,7 @@ const torrentService = {
   },
 
   async removeTorrent(torrentId) {
-    const response = await fetch(`${API_BASE_URL}/public/torrents/${torrentId}`, {
+    const response = await fetch(`${API_BASE_URL}/public/torrents/${torrentId}/removeTorrent`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     });
