@@ -14,8 +14,8 @@ import java.util.*;
 import java.util.function.Consumer;
 
 @RestController
-@CrossOrigin({"http://localhost:3000", "http://127.0.0.1:9999", "http://localhost:9000"})
-@RequestMapping("/spring/torrents")
+@CrossOrigin({"http://localhost:3000", "http://127.0.0.1:9999", "http://localhost:9000", "http://localhost:5173"})
+@RequestMapping("/public/torrents")
 public class TorrentController {
 
     private final RestTemplate restTemplate = new RestTemplate();
