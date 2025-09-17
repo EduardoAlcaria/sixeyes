@@ -4,10 +4,13 @@ import libtorrent as lt
 import time
 import os
 import threading
+from flask_cors import CORS
 
 from TorrentEnum import Status
 
 app = Flask(__name__)
+CORS(app)
+
 ses = lt.session()
 ses.listen_on(6881, 6891)
 
@@ -68,7 +71,7 @@ def download_torrent_thread(torrentG):
     print(f"Download finished: {torrentG['title']}")
 
 
-@app.route('/private/downloadTorrent', methods=['POST'])
+@app.route('/python/downloadTorrent', methods=['POST'])
 def start_download():
     global torrentG
     torrentG = request.get_json()
@@ -79,12 +82,12 @@ def start_download():
     return jsonify(torrentG)
 
 
-@app.route('/private/getTorrentStats', methods=['GET'])
+@app.route('/python/getTorrentStats', methods=['GET'])
 def get_status():
     return jsonify(torrentG)
 
 
-@app.route('/private/pausedTorrent', methods=['PUT'])
+@app.route('/python/pausedTorrent', methods=['PUT'])
 def pause_torrent():
     res = request.get_json()
     torrent_infoHash = torrentInfoHash[res['id']]
@@ -99,7 +102,7 @@ def pause_torrent():
         return jsonify({"error": "Torrent not paused"}), 500
 
 
-@app.route('/private/resumeTorrent', methods=['PUT'])
+@app.route('/python/resumeTorrent', methods=['PUT'])
 def resume_torrent():
     res = request.get_json()
     torrent_infoHash = torrentInfoHash[res['id']]

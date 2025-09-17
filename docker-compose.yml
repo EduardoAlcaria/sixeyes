@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  python-backend:
+    build: 
+      context: ./python
+      dockerfile: Dockerfile
+    container_name: torrent-python
+    ports:
+      - "9999:9999"
+    volumes:
+      - ./downloads:/app/downloads
+    networks:
+      - torrent-network
+    environment:
+      - FLASK_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9999/python/getTorrentStats"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  java-backend:
+    build: 
+      context: ./java/controller
+      dockerfile: Dockerfile
+    container_name: torrent-java
+    ports:
+      - "9090:9090"
+    depends_on:
+      - python-backend
+    networks:
+      - torrent-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=production
+      - PYTHON_SERVICE_URL=http://python-backend:9999
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/spring/torrents/get"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  react-frontend:
+    build: 
+      context: ./js/
+      dockerfile: Dockerfile
+    container_name: torrent-frontend
+    ports:
+      - "3000:5173"
+    depends_on:
+      - java-backend
+      - python-backend
+    networks:
+      - torrent-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  torrent-network:
+    driver: bridge
+
+volumes:
+  downloads:
+    driver: local
