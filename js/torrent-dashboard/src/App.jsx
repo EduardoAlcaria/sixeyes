@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LineChart,
   Line,
@@ -13,29 +13,41 @@ import {
   Cell,
 } from 'recharts';
 
-
 const API_BASE_URL = 'http://localhost:9090';
-const POLLING_INTERVAL = 5000; 
+const POLLING_INTERVAL = 5000;
 
+const systemService = {
+  async getSystemInfo() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/public/torrents/systemInfo/getSystemStorage`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      
+      return await response.json();
 
-const downloadSpeedData = [
-  { time: '00:00', speed: 5.2 },
-  { time: '00:05', speed: 8.1 },
-  { time: '00:10', speed: 12.5 },
-  { time: '00:15', speed: 15.8 },
-  { time: '00:20', speed: 18.3 },
-  { time: '00:25', speed: 22.1 },
-  { time: '00:30', speed: 25.4 },
-  { time: '00:35', speed: 28.7 },
-  { time: '00:40', speed: 32.2 },
-  { time: '00:45', speed: 29.8 },
-];
-
-const systemSpaceData = [
-  { name: 'Used', value: 750, color: '#ef4444' },
-  { name: 'Available', value: 250, color: '#10b981' },
-];
-
+    } catch (error) {
+      console.warn('Failed to fetch system info, using fallback:', error);
+      
+      return {
+        storage: {
+          total: 1000, 
+          used: 750,   
+          available: 250 
+        },
+        network: {
+          downloadSpeed: Math.random() * 30 + 5, 
+          uploadSpeed: Math.random() * 10 + 2    
+        }
+      };
+    }
+  }
+};
 
 const torrentService = {
   async addTorrent(magnetLink) {
@@ -50,7 +62,6 @@ const torrentService = {
     }
     
     return await response.json();
-   
   },
 
   async getTorrents() {
@@ -119,7 +130,6 @@ const torrentService = {
   }
 };
 
-
 const getStatusColor = (status) => {
   const colors = {
     Downloading: 'text-blue-400 bg-blue-400/10',
@@ -127,6 +137,7 @@ const getStatusColor = (status) => {
     Paused: 'text-yellow-400 bg-yellow-400/10',
     Error: 'text-red-400 bg-red-400/10',
     Stopped: 'text-gray-400 bg-gray-400/10',
+    Completed: 'text-emerald-400 bg-emerald-400/10',
   };
   return colors[status] || 'text-gray-400 bg-gray-400/10';
 };
@@ -138,6 +149,7 @@ const getProgressColor = (status) => {
     Paused: 'bg-yellow-500',
     Error: 'bg-red-500',
     Stopped: 'bg-gray-500',
+    Completed: 'bg-emerald-500',
   };
   return colors[status] || 'bg-gray-500';
 };
@@ -147,6 +159,10 @@ const parseSpeed = (speedString) => {
   return parseFloat(speedString.replace(" MB/s", ""));
 };
 
+const formatBytes = (bytes) => {
+  const gb = bytes / (1024 * 1024 * 1024);
+  return `${gb.toFixed(1)} GB`;
+};
 
 const TorrentCard = ({ torrent, onRemove, onPause, onResume, onStop }) => {
   const handlePauseResume = () => {
@@ -158,7 +174,7 @@ const TorrentCard = ({ torrent, onRemove, onPause, onResume, onStop }) => {
   };
 
   const canPauseResume = ['Downloading', 'Seeding', 'Paused'].includes(torrent.status);
-  const canStop = !['Stopped', 'Error'].includes(torrent.status);
+  const canStop = !['Stopped', 'Error', 'Completed'].includes(torrent.status);
 
   return (
     <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/90 backdrop-blur-lg border border-white/10 rounded-2xl p-4 hover:border-white/20 transition-all duration-300">
@@ -321,8 +337,75 @@ const LoadingOverlay = ({ message = 'Loading...' }) => (
   </div>
 );
 
+
+const useSystemMonitoring = () => {
+  const [systemData, setSystemData] = useState({
+    storage: { total: 1000, used: 750, available: 250 },
+    network: { downloadSpeed: 0, uploadSpeed: 0 }
+  });
+  const [networkHistory, setNetworkHistory] = useState([]);
+  const intervalRef = useRef(null);
+
+  const updateSystemData = useCallback(async () => {
+    try {
+      const data = await systemService.getSystemInfo();
+      setSystemData(data);
+
+     
+      const now = new Date();
+      const timeString = now.toLocaleTimeString('en-US', { 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+
+      setNetworkHistory(prev => {
+        const newHistory = [...prev, {
+          time: timeString,
+          speed: data.network.downloadSpeed
+        }];
+        
+       
+        return newHistory.slice(-20);
+      });
+    } catch (error) {
+      console.error('Failed to fetch system data:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    
+    updateSystemData();
+
+    
+    intervalRef.current = setInterval(updateSystemData, POLLING_INTERVAL);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [updateSystemData]);
+
+  return { systemData, networkHistory };
+};
+
 const useTorrents = () => {
   const [torrents, setTorrents] = useState([]);
+  const [completedTorrents, setCompletedTorrents] = useState([
+    {
+      id: 101,
+      title: "Fedora 38 Workstation Live",
+      size: "1.9 GB",
+      completedAt: "2 hours ago"
+    },
+    {
+      id: 102,
+      title: "VLC Media Player 3.0.18",
+      size: "45 MB",
+      completedAt: "5 hours ago"
+    }
+  ]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -335,23 +418,34 @@ const useTorrents = () => {
   const loadTorrents = useCallback(async () => {
     try {
       const data = await torrentService.getTorrents();
+      
+      
+      torrents.forEach(oldTorrent => {
+        const newTorrent = data.find(t => t.id === oldTorrent.id);
+        if (newTorrent && 
+            oldTorrent.progress < 100 && 
+            newTorrent.progress === 100 && 
+            newTorrent.status !== 'Seeding') {
+          
+          
+          setCompletedTorrents(prev => [{
+            id: newTorrent.id,
+            title: newTorrent.title,
+            size: newTorrent.size,
+            completedAt: 'Just now'
+          }, ...prev.slice(0, 9)]); 
+        }
+      });
+
       setTorrents(data);
     } catch (error) {
       handleError(error, 'load torrents');
     }
-  }, [handleError]);
-
+  }, [handleError, torrents]);
 
   useEffect(() => {
-   
     loadTorrents();
-
-    
-    const interval = setInterval(() => {
-      loadTorrents();
-    }, POLLING_INTERVAL);
-
-   
+    const interval = setInterval(loadTorrents, POLLING_INTERVAL);
     return () => clearInterval(interval);
   }, [loadTorrents]);
 
@@ -424,6 +518,7 @@ const useTorrents = () => {
 
   return {
     torrents,
+    completedTorrents,
     isLoading,
     error,
     addTorrent,
@@ -435,86 +530,28 @@ const useTorrents = () => {
   };
 };
 
-
 const Dashboard = () => {
   const {
     torrents,
+    completedTorrents,
     isLoading,
     error,
     addTorrent,
     pauseTorrent,
     resumeTorrent,
     stopTorrent,
-    removeTorrent,
-    loadTorrents
+    removeTorrent
   } = useTorrents();
 
-  const [completedTorrents] = useState([
-    {
-      id: 101,
-      title: "Fedora 38 Workstation Live",
-      size: "1.9 GB",
-      completedAt: "2 hours ago"
-    },
-    {
-      id: 102,
-      title: "VLC Media Player 3.0.18",
-      size: "45 MB",
-      completedAt: "5 hours ago"
-    },
-    {
-      id: 103,
-      title: "OpenOffice 4.1.13",
-      size: "132 MB",
-      completedAt: "1 day ago"
-    },
-    {
-      id: 104,
-      title: "GIMP 2.10.34 Portable",
-      size: "278 MB",
-      completedAt: "2 days ago"
-    },
-    {
-      id: 105,
-      title: "Blender 4.0 LTS",
-      size: "312 MB",
-      completedAt: "3 days ago"
-    }
-  ]);
+  const { systemData, networkHistory } = useSystemMonitoring();
 
-
+  
   useEffect(() => {
     if (torrents.length === 0) {
       
-      const mockTorrents = [
-        {
-          id: 1,
-          title: "Ubuntu 22.04.3 Desktop amd64.iso",
-          status: "Downloading",
-          progress: 65,
-          size: "4.7 GB",
-          downloadSpeed: "15.2 MB/s",
-          uploadSpeed: "2.1 MB/s",
-          peers: 124,
-          eta: "12m 34s"
-        },
-        {
-          id: 2,
-          title: "Big Buck Bunny 4K",
-          status: "Seeding",
-          progress: 100,
-          size: "2.1 GB",
-          downloadSpeed: "0 MB/s",
-          uploadSpeed: "5.8 MB/s",
-          peers: 45,
-          eta: null
-        }
-      ];
-     
     }
   }, [torrents.length]);
 
- 
   const downloadingTorrents = torrents.filter(t => t.status === 'Downloading');
   const seedingTorrents = torrents.filter(t => t.status === 'Seeding');
   
@@ -523,6 +560,12 @@ const Dashboard = () => {
   
   const totalUploadSpeed = torrents
     .reduce((sum, t) => sum + parseSpeed(t.uploadSpeed), 0);
+
+  
+  const storageData = [
+    { name: 'Used', value: systemData.storage.used, color: '#ef4444' },
+    { name: 'Available', value: systemData.storage.available, color: '#10b981' },
+  ];
 
   return (
     <div className="min-h-screen w-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 overflow-x-hidden">
@@ -573,10 +616,10 @@ const Dashboard = () => {
 
           <div className="w-full lg:w-80 xl:w-96 flex-shrink-0 space-y-4">
             <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/90 backdrop-blur-lg border border-white/10 rounded-2xl p-4 w-full">
-              <h3 className="text-white font-bold text-sm mb-3">Download Speed</h3>
+              <h3 className="text-white font-bold text-sm mb-3">Network Speed</h3>
               <div className="h-32 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={downloadSpeedData}>
+                  <AreaChart data={networkHistory}>
                     <defs>
                       <linearGradient id="colorSpeed" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
@@ -596,6 +639,10 @@ const Dashboard = () => {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
+              <div className="mt-2 flex justify-between text-xs text-gray-400">
+                <span>↓ {systemData.network.downloadSpeed.toFixed(1)} MB/s</span>
+                <span>↑ {systemData.network.uploadSpeed.toFixed(1)} MB/s</span>
+              </div>
             </div>
 
             <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/90 backdrop-blur-lg border border-white/10 rounded-2xl p-4 w-full">
@@ -605,7 +652,7 @@ const Dashboard = () => {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={systemSpaceData}
+                        data={storageData}
                         cx="50%"
                         cy="50%"
                         innerRadius={25}
@@ -613,7 +660,7 @@ const Dashboard = () => {
                         paddingAngle={5}
                         dataKey="value"
                       >
-                        {systemSpaceData.map((entry, index) => (
+                        {storageData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
@@ -621,15 +668,18 @@ const Dashboard = () => {
                   </ResponsiveContainer>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 mb-2">
                 <div className="text-center">
-                  <div className="text-red-400 font-bold text-sm">750 GB</div>
+                  <div className="text-red-400 font-bold text-sm">{formatBytes(systemData.storage.used * 1024 * 1024 * 1024)}</div>
                   <div className="text-gray-400 text-xs">Used</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-emerald-400 font-bold text-sm">250 GB</div>
+                  <div className="text-emerald-400 font-bold text-sm">{formatBytes(systemData.storage.available * 1024 * 1024 * 1024)}</div>
                   <div className="text-gray-400 text-xs">Available</div>
                 </div>
+              </div>
+              <div className="text-center">
+                <div className="text-gray-300 text-xs">Total: {formatBytes(systemData.storage.total * 1024 * 1024 * 1024)}</div>
               </div>
             </div>
 
