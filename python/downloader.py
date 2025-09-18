@@ -5,6 +5,8 @@ import time
 import os
 import threading
 from flask_cors import CORS
+import shutil
+from pathlib import Path
 
 from TorrentEnum import Status
 
@@ -199,6 +201,16 @@ def remove_torrent():
 
 
 
+@app.route('/python/systemInfo/getStorageInfo', methods=['GET'])
+def get_used_storage():
+    try:
+        drive = Path(__file__).anchor
+        driveInfo = shutil.disk_usage(drive)
+
+        return jsonify({"Used" : driveInfo.used, "Available" : driveInfo.free})
+
+    except Exception as e:
+        print(e)
 
 if __name__ == "__main__":
-    app.run(port=9999)
+    app.run(port=9999, debug=True)
