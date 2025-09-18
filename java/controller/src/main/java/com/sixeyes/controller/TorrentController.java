@@ -1,7 +1,9 @@
 package com.sixeyes.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sixeyes.model.Torrent;
 import com.sixeyes.model.TorrentStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -19,6 +21,9 @@ public class TorrentController {
     private final RestTemplate restTemplate = new RestTemplate();
     private final Map<Long, Torrent> torrents = new HashMap<>();
     private final AtomicLong idGenerator = new AtomicLong(1);
+
+    @Autowired
+    private GetInfoPython getInfoPython;
 
 
     @PostMapping("/add")
@@ -165,5 +170,74 @@ public class TorrentController {
 
         System.out.println("Updated torrent " + torrent.getId() + " - Status: " + torrent.getStatus());
     }
+    @GetMapping("/systemInfo/getSystemStorage")
+    public ResponseEntity<Map<String, Object>> getStorageInfo() {
+        try {
 
+            String storageInfo = getInfoPython.getStorage();
+            Map<String, Object> flaskData = new ObjectMapper().readValue(storageInfo, Map.class);
+
+
+            double usedBytes = Double.parseDouble(flaskData.get("Used").toString());
+            double availableBytes = Double.parseDouble(flaskData.get("Available").toString());
+            double totalBytes = usedBytes + availableBytes;
+
+            double usedGB = usedBytes / (1024.0 * 1024.0 * 1024.0);
+            double availableGB = availableBytes / (1024.0 * 1024.0 * 1024.0);
+            double totalGB = totalBytes / (1024.0 * 1024.0 * 1024.0);
+
+
+            Map<String, Object> response = new HashMap<>();
+            Map<String, Object> storage = new HashMap<>();
+            Map<String, Object> network = new HashMap<>();
+
+            storage.put("total", Math.round(totalGB * 10.0) / 10.0);
+            storage.put("used", Math.round(usedGB * 10.0) / 10.0);
+            storage.put("available", Math.round(availableGB * 10.0) / 10.0);
+
+
+            network.put("downloadSpeed", getCurrentDownloadSpeed());
+            network.put("uploadSpeed", getCurrentUploadSpeed());
+
+            response.put("storage", storage);
+            response.put("network", network);
+
+            System.out.println("Storage Info: " + response);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            System.err.println("Error getting storage info: " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to get storage info: " + e.getMessage());
+        }
+    }
+    private double getCurrentDownloadSpeed() {
+        return torrents.values().stream()
+                .filter(torrent -> torrent.getStatus().equals(TorrentStatus.DOWNLOADING.getValue()))
+                .mapToDouble(t ->{
+                    try {
+                        Double.parseDouble(t.getDownloadSpeed());
+                    }catch (NumberFormatException e){
+                        throw e;
+                    }
+                    return 0.0;
+                })
+                .sum();
+    }
+
+    private double getCurrentUploadSpeed() {
+
+        return torrents.values().stream()
+                .mapToDouble(t -> {
+                    try {
+                        String speed = t.getUploadSpeed();
+                        if (speed != null && !speed.isEmpty()) {
+                            return Double.parseDouble(speed.replace(" MB/s", ""));
+                        }
+                    } catch (NumberFormatException e) {
+
+                    }
+                    return 0.0;
+                })
+                .sum();
+    }
 }
