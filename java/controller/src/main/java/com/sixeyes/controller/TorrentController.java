@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sixeyes.model.Torrent;
 import com.sixeyes.model.TorrentStatus;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -14,13 +15,22 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 @RestController
-@CrossOrigin({"http://localhost:3000", "http://127.0.0.1:9999", "http://localhost:9000", "http://localhost:5173"})
+@CrossOrigin({
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:9000",
+        "http://localhost:9999",
+        "*.run.app"
+})
 @RequestMapping("/public/torrents")
 public class TorrentController {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final Map<Long, Torrent> torrents = new HashMap<>();
     private final AtomicLong idGenerator = new AtomicLong(1);
+
+    @Value("${python.service.url}")
+    private String pythonUrl;
 
     @Autowired
     private GetInfoPython getInfoPython;
@@ -39,12 +49,12 @@ public class TorrentController {
 
         torrents.put(torrentLong, torrent);
 
-        String flaskURL = "http://127.0.0.1:9999/python/add";
+        String flaskURL = pythonUrl+"/python/add";
 
         HttpEntity<Torrent> torrentHttpEntity = new HttpEntity<>(torrent, new HttpHeaders());
         try {
             ResponseEntity<Map> flaskResponce = restTemplate.postForEntity(flaskURL, torrentHttpEntity, Map.class);
-            System.out.println(flaskResponce);
+
 
         }catch (Exception e){
             torrents.remove(torrentLong);
@@ -56,7 +66,7 @@ public class TorrentController {
 
     @GetMapping("/get")
     public ResponseEntity<List<Torrent>> getAllTorrents() {
-        String flaskURL = "http://127.0.0.1:9999/python/get";
+        String flaskURL = pythonUrl + "/python/get";
 
         try {
             ResponseEntity<List> flaskResponse = restTemplate.getForEntity(flaskURL, List.class);
@@ -86,12 +96,10 @@ public class TorrentController {
 
     @PutMapping("{torrentId}/pause")
     public ResponseEntity<Torrent> pauseTorrent(@PathVariable("torrentId") Long id) {
-        System.out.println("pause torrent");
 
         Torrent torrent = torrents.get(id);
 
-
-        String flaskURL = "http://127.0.0.1:9999/python/pause";
+        String flaskURL =  pythonUrl + "/python/pause";
 
         try {
             restTemplate.put(flaskURL, torrent);
@@ -104,8 +112,7 @@ public class TorrentController {
 
     @PutMapping("{torrentId}/resume")
     public ResponseEntity<Torrent> resumeTorrent(@PathVariable("torrentId") Long id){
-        System.out.println("Resume torrent");
-        String flaskURL = "http://127.0.0.1:9999/python/resume";
+        String flaskURL = pythonUrl + "/python/resume";
 
         Torrent torrent = torrents.get(id);
         try {
@@ -121,8 +128,8 @@ public class TorrentController {
 
     @DeleteMapping("{torrentId}/removeTorrent")
     public ResponseEntity<Map<String, String>> removeTorrent(@PathVariable("torrentId") Long id){
-        System.out.println("Delete Torrent");
-        String flaskUrl = "http://127.0.0.1:9999/python/remove";
+
+        String flaskUrl =  pythonUrl + "/python/remove";
 
         Torrent torrent = torrents.get(id);
         try {
@@ -140,6 +147,12 @@ public class TorrentController {
         }catch (Exception e){
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, " " + e.getMessage());
         }
+    }
+
+    @GetMapping("/test")
+    public ResponseEntity<String> testEndpoint(){
+        System.out.println("Test endpoint called!");
+        return ResponseEntity.ok("Hello World from TorrentController!");
     }
 
     private void updateTorrentFromFlaskData(Torrent torrent, Map<String, Object> torrentData) {
@@ -168,8 +181,10 @@ public class TorrentController {
             torrent.setStatus(TorrentStatus.SEEDING.getValue());
         }
 
-        System.out.println("Updated torrent " + torrent.getId() + " - Status: " + torrent.getStatus());
+
     }
+
+
     @GetMapping("/systemInfo/getSystemStorage")
     public ResponseEntity<Map<String, Object>> getStorageInfo() {
         try {
@@ -202,7 +217,7 @@ public class TorrentController {
             response.put("storage", storage);
             response.put("network", network);
 
-            System.out.println("Storage Info: " + response);
+
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
@@ -240,4 +255,6 @@ public class TorrentController {
                 })
                 .sum();
     }
+
+
 }
