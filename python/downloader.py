@@ -212,5 +212,9 @@ def get_used_storage():
     except Exception as e:
         print(e)
 
+@app.route("/test")
+def test_end_point():
+    return jsonify({"success": True})
+
 if __name__ == "__main__":
     app.run(port=9999, debug=True)
