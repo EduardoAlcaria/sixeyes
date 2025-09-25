@@ -121,7 +121,6 @@ public class Torrent {
 
     public void setUploadSpeed(String uploadSpeed) {
         String string = String.format("%.2f", Double.parseDouble(uploadSpeed)) + "MB/s";
-        System.out.println("setUploadSpeed " + string);
         this.uploadSpeed = string;
     }
 
