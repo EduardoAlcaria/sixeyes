@@ -87,7 +87,7 @@ public class TorrentController {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Failed to get torrent stats from Flask: " + e.getMessage());
+            throw new RuntimeException("Failed to get torrent stats from Flask:" + e.getMessage());
         }
 
         List<Torrent> torrentList = new ArrayList<>(torrents.values());
@@ -148,7 +148,6 @@ public class TorrentController {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, " " + e.getMessage());
         }
     }
-
     @GetMapping("/test")
     public ResponseEntity<String> testEndpoint(){
         System.out.println("Test endpoint called!");
@@ -221,7 +220,6 @@ public class TorrentController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            System.err.println("Error getting storage info: " + e.getMessage());
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to get storage info: " + e.getMessage());
         }
     }
