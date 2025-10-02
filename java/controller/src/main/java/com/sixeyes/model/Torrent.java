@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 
 @Entity
@@ -51,6 +52,18 @@ public class Torrent {
         this.title = title;
         this.magnet = magnet;
         this.infoHash = infoHash;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Torrent torrent = (Torrent) o;
+        return Objects.equals(id, torrent.id) && Objects.equals(title, torrent.title) && Objects.equals(magnet, torrent.magnet) && Objects.equals(infoHash, torrent.infoHash) && Objects.equals(progress, torrent.progress) && Objects.equals(downloadSpeed, torrent.downloadSpeed) && Objects.equals(uploadSpeed, torrent.uploadSpeed) && Objects.equals(peers, torrent.peers) && Objects.equals(eta, torrent.eta) && Objects.equals(status, torrent.status) && Objects.equals(createdAt, torrent.createdAt) && Objects.equals(updatedAt, torrent.updatedAt);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, title, magnet, infoHash, progress, downloadSpeed, uploadSpeed, peers, eta, status, createdAt, updatedAt);
     }
 
     public Torrent(String magnet) {
