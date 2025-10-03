@@ -19,8 +19,7 @@ import java.util.function.Consumer;
         "http://localhost:3000",
         "http://localhost:5173",
         "http://localhost:9000",
-        "http://localhost:9999",
-        "*.run.app"
+        "https://sixeyesfrontend-v0-1-998526113594.europe-west1.run.app",
 })
 @RequestMapping("/public/torrents")
 public class TorrentController {
@@ -35,9 +34,8 @@ public class TorrentController {
     @Autowired
     private GetInfoPython getInfoPython;
 
-
     @PostMapping("/add")
-    public ResponseEntity<Map<Long,Torrent>> addTorrent(@RequestBody Torrent dto) {
+    public ResponseEntity<Map<Long, Torrent>> addTorrent(@RequestBody Torrent dto) {
 
         if (dto.getMagnet() == null || !dto.getMagnet().startsWith("magnet:")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "the magnet is invalid");
@@ -49,14 +47,14 @@ public class TorrentController {
 
         torrents.put(torrentLong, torrent);
 
-        String flaskURL = pythonUrl+"/python/add";
+        String flaskURL = pythonUrl + "/python/add";
 
         HttpEntity<Torrent> torrentHttpEntity = new HttpEntity<>(torrent, new HttpHeaders());
         try {
             ResponseEntity<Map> flaskResponce = restTemplate.postForEntity(flaskURL, torrentHttpEntity, Map.class);
 
 
-        }catch (Exception e){
+        } catch (Exception e) {
             torrents.remove(torrentLong);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, " " + e.getMessage());
         }
@@ -67,8 +65,8 @@ public class TorrentController {
     @GetMapping("/get")
     public ResponseEntity<List<Torrent>> getAllTorrents() {
         String flaskURL = pythonUrl + "/python/get";
-
         try {
+            Thread.sleep(5000);
             ResponseEntity<List> flaskResponse = restTemplate.getForEntity(flaskURL, List.class);
             List<Map<String, Object>> torrentDataList = flaskResponse.getBody();
 
@@ -99,19 +97,19 @@ public class TorrentController {
 
         Torrent torrent = torrents.get(id);
 
-        String flaskURL =  pythonUrl + "/python/pause";
+        String flaskURL = pythonUrl + "/python/pause";
 
         try {
             restTemplate.put(flaskURL, torrent);
             torrent.setStatus(TorrentStatus.PAUSED.getValue());
             return ResponseEntity.ok(torrent);
-        }catch (Exception e){
+        } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, " id not found " + e.getMessage());
         }
     }
 
     @PutMapping("{torrentId}/resume")
-    public ResponseEntity<Torrent> resumeTorrent(@PathVariable("torrentId") Long id){
+    public ResponseEntity<Torrent> resumeTorrent(@PathVariable("torrentId") Long id) {
         String flaskURL = pythonUrl + "/python/resume";
 
         Torrent torrent = torrents.get(id);
@@ -120,16 +118,16 @@ public class TorrentController {
             torrent.setStatus(TorrentStatus.DOWNLOADING.getValue());
             return ResponseEntity.ok(torrent);
 
-        }catch (Exception e){
+        } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, " id not found " + e.getMessage());
         }
     }
 
 
     @DeleteMapping("{torrentId}/removeTorrent")
-    public ResponseEntity<Map<String, String>> removeTorrent(@PathVariable("torrentId") Long id){
+    public ResponseEntity<Map<String, String>> removeTorrent(@PathVariable("torrentId") Long id) {
 
-        String flaskUrl =  pythonUrl + "/python/remove";
+        String flaskUrl = pythonUrl + "/python/remove";
 
         Torrent torrent = torrents.get(id);
         try {
@@ -144,12 +142,13 @@ public class TorrentController {
 
             return ResponseEntity.ok(responce);
 
-        }catch (Exception e){
+        } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, " " + e.getMessage());
         }
     }
+
     @GetMapping("/test")
-    public ResponseEntity<String> testEndpoint(){
+    public ResponseEntity<String> testEndpoint() {
         System.out.println("Test endpoint called!");
         return ResponseEntity.ok("Hello World from TorrentController!");
     }
@@ -223,13 +222,14 @@ public class TorrentController {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to get storage info: " + e.getMessage());
         }
     }
+
     private double getCurrentDownloadSpeed() {
         return torrents.values().stream()
                 .filter(torrent -> torrent.getStatus().equals(TorrentStatus.DOWNLOADING.getValue()))
-                .mapToDouble(t ->{
+                .mapToDouble(t -> {
                     try {
                         Double.parseDouble(t.getDownloadSpeed());
-                    }catch (NumberFormatException e){
+                    } catch (NumberFormatException e) {
                         throw e;
                     }
                     return 0.0;
@@ -247,7 +247,7 @@ public class TorrentController {
                             return Double.parseDouble(speed.replace(" MB/s", ""));
                         }
                     } catch (NumberFormatException e) {
-
+                        throw e;
                     }
                     return 0.0;
                 })
