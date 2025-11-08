@@ -10,9 +10,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+
 
 @RestController
 @CrossOrigin({
@@ -22,17 +24,24 @@ import java.util.function.Consumer;
         "https://sixeyesfrontend-v0-1-998526113594.europe-west1.run.app",
 })
 @RequestMapping("/public/torrents")
+
 public class TorrentController {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private final Map<Long, Torrent> torrents = new HashMap<>();
     private final AtomicLong idGenerator = new AtomicLong(1);
+    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     @Value("${python.service.url}")
     private String pythonUrl;
 
     @Autowired
     private GetInfoPython getInfoPython;
+
+    @Autowired
+    public TorrentController(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
 
     @PostMapping("/add")
     public ResponseEntity<Map<Long, Torrent>> addTorrent(@RequestBody Torrent dto) {
@@ -51,13 +60,15 @@ public class TorrentController {
 
         HttpEntity<Torrent> torrentHttpEntity = new HttpEntity<>(torrent, new HttpHeaders());
         try {
-            ResponseEntity<Map> flaskResponce = restTemplate.postForEntity(flaskURL, torrentHttpEntity, Map.class);
+            ResponseEntity<Map> flaskResponse = restTemplate.postForEntity(flaskURL, torrentHttpEntity, Map.class);
 
 
         } catch (Exception e) {
             torrents.remove(torrentLong);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, " " + e.getMessage());
         }
+
+        getInfoPython.getStorage();
 
         return ResponseEntity.ok(torrents);
     }
@@ -66,7 +77,7 @@ public class TorrentController {
     public ResponseEntity<List<Torrent>> getAllTorrents() {
         String flaskURL = pythonUrl + "/python/get";
         try {
-            Thread.sleep(5000);
+            Thread.sleep(2000);
             ResponseEntity<List> flaskResponse = restTemplate.getForEntity(flaskURL, List.class);
             List<Map<String, Object>> torrentDataList = flaskResponse.getBody();
 
@@ -89,7 +100,35 @@ public class TorrentController {
         }
 
         List<Torrent> torrentList = new ArrayList<>(torrents.values());
+
+        torrentList.forEach(System.out::println);
         return ResponseEntity.ok(torrentList);
+    }
+
+
+    @GetMapping("/getCompleted")
+    public ResponseEntity<List<Map<String, Object>>> getCompleted() {
+        try {
+                List<Map<String, Object>> completed = torrents.values().stream()
+                        .filter(t -> t.getStatus().equals(TorrentStatus.SEEDING.getValue())
+                                || t.getProgress() == 100.0)
+                        .map(torrent -> {
+                            Map<String, Object> data = new HashMap<>();
+                            data.put("id", torrent.getId());
+                            data.put("title", torrent.getTitle());
+                            data.put("size", torrent.getSize());
+                            data.put("completedAt", torrent.getUpdatedAt().format(formatter));
+                            return data;
+                        })
+                        .toList();
+
+                return ResponseEntity.ok(completed);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Could not retrieve the completed torrents");
+        }
+
+
     }
 
     @PutMapping("{torrentId}/pause")
@@ -136,11 +175,11 @@ public class TorrentController {
 
             torrents.remove(id);
 
-            Map<String, String> responce = new HashMap<>();
-            responce.put("message", "torrent removed");
-            responce.put("id", id.toString());
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "torrent removed");
+            response.put("id", id.toString());
 
-            return ResponseEntity.ok(responce);
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, " " + e.getMessage());
@@ -158,6 +197,7 @@ public class TorrentController {
                 "title", v -> torrent.setTitle((String) v),
                 "magnet", v -> torrent.setMagnet((String) v),
                 "infoHash", v -> torrent.setInfoHash((String) v),
+                "size", v -> torrent.setSize((String) v),
                 "progress", torrent::setProgress,
                 "downloadSpeed", v -> torrent.setDownloadSpeed(String.valueOf(v)),
                 "uploadSpeed", v -> torrent.setUploadSpeed(String.valueOf(v)),
@@ -228,9 +268,12 @@ public class TorrentController {
                 .filter(torrent -> torrent.getStatus().equals(TorrentStatus.DOWNLOADING.getValue()))
                 .mapToDouble(t -> {
                     try {
-                        Double.parseDouble(t.getDownloadSpeed());
-                    } catch (NumberFormatException e) {
-                        throw e;
+                        String speed = t.getDownloadSpeed();
+                        if (speed != null && !speed.isEmpty()) {
+                            return Double.parseDouble(speed.replace(" MB/s", "").replace("MB/s", "").trim());
+                        }
+                    } catch (NumberFormatException | NullPointerException e) {
+                        System.out.println("Error parsing download speed for torrent " + t.getId() + ": " + t.getDownloadSpeed());
                     }
                     return 0.0;
                 })
@@ -238,16 +281,15 @@ public class TorrentController {
     }
 
     private double getCurrentUploadSpeed() {
-
         return torrents.values().stream()
                 .mapToDouble(t -> {
                     try {
                         String speed = t.getUploadSpeed();
                         if (speed != null && !speed.isEmpty()) {
-                            return Double.parseDouble(speed.replace(" MB/s", ""));
+                            return Double.parseDouble(speed.replace(" MB/s", "").replace("MB/s", "").trim());
                         }
-                    } catch (NumberFormatException e) {
-                        throw e;
+                    } catch (NumberFormatException | NullPointerException e) {
+                        System.out.println("Error parsing upload speed for torrent " + t.getId() + ": " + t.getUploadSpeed());
                     }
                     return 0.0;
                 })
