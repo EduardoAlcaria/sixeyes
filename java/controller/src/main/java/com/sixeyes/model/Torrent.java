@@ -27,6 +27,7 @@ public class Torrent {
     private String infoHash;
 
 
+    private String size = "0 GB";
     private Double progress = 0.0;
     private String downloadSpeed = "0 MB/s";
     private String uploadSpeed = "0 MB/s";
@@ -64,6 +65,14 @@ public class Torrent {
     @Override
     public int hashCode() {
         return Objects.hash(id, title, magnet, infoHash, progress, downloadSpeed, uploadSpeed, peers, eta, status, createdAt, updatedAt);
+    }
+
+    public String getSize() {
+        return this.size;
+    }
+
+    public void setSize(String size) {
+        this.size = size;
     }
 
     public Torrent(String magnet) {
@@ -125,17 +134,38 @@ public class Torrent {
     }
 
     public void setDownloadSpeed(String downloadSpeed) {
-        this.downloadSpeed = String.format("%.2f", Double.parseDouble(downloadSpeed)) + "MB/s";
+        if (downloadSpeed == null || downloadSpeed.isEmpty()) {
+            this.downloadSpeed = "0.00 MB/s";
+            return;
+        }
+        try {
+
+            String cleanSpeed = downloadSpeed.replace(" MB/s", "").replace("MB/s", "").trim();
+            this.downloadSpeed = String.format("%.2f MB/s", Double.parseDouble(cleanSpeed));
+        } catch (NumberFormatException e) {
+            this.downloadSpeed = "0.00 MB/s";
+        }
     }
 
     public String getUploadSpeed() {
         return uploadSpeed;
     }
 
+
     public void setUploadSpeed(String uploadSpeed) {
-        String string = String.format("%.2f", Double.parseDouble(uploadSpeed)) + "MB/s";
-        this.uploadSpeed = string;
+        if (uploadSpeed == null || uploadSpeed.isEmpty()) {
+            this.uploadSpeed = "0.00 MB/s";
+            return;
+        }
+        try {
+
+            String cleanSpeed = uploadSpeed.replace(" MB/s", "").replace("MB/s", "").trim();
+            this.uploadSpeed = String.format("%.2f MB/s", Double.parseDouble(cleanSpeed));
+        } catch (NumberFormatException e) {
+            this.uploadSpeed = "0.00 MB/s";
+        }
     }
+
 
     public Integer getPeers() {
         return peers;
