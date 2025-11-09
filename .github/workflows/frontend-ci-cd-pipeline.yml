@@ -16,7 +16,8 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   SERVICE_NAME: sixeyesfrontend-v.0.1
-  REGION: europe-west1
+  REGION: southamerica-east1
+  ARTIFACT_REPO: six-eyes-spring-react-integrator
   NODE_VERSION: '22'
   WORKING_DIRECTORY: js/torrent-dashboard
 
@@ -149,17 +150,20 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          docker build -f DockerFile .
+          docker build \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE_NAME }}:latest \
+            -f DockerFile .
 
       - name: Push Docker Image to Artifact Registry
         run: |
-          docker push southamerica-east1-docker.pkg.dev/spartan-calling-472312-d5/six-eyes-spring-react-integrator/sixeyesfrontend-v.0.1:${{ github.sha }}
-        
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE_NAME }}:latest
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/six-eyes-spring-react-integrator/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             --platform=managed \
             --region=${{ env.REGION }} \
             --allow-unauthenticated \
