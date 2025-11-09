@@ -127,7 +127,23 @@ const torrentService = {
     }
     
     return response.json();
+  },
+
+  async getCompletedTorrents() {
+    const response = await fetch(`${API_BASE_URL}/public/torrents/getCompleted`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+        
+      }
+
+      return response.json();
   }
+
 };
 
 const getStatusColor = (status) => {
@@ -392,20 +408,7 @@ const useSystemMonitoring = () => {
 
 const useTorrents = () => {
   const [torrents, setTorrents] = useState([]);
-  const [completedTorrents, setCompletedTorrents] = useState([
-    {
-      id: 101,
-      title: "Fedora 38 Workstation Live",
-      size: "1.9 GB",
-      completedAt: "2 hours ago"
-    },
-    {
-      id: 102,
-      title: "VLC Media Player 3.0.18",
-      size: "45 MB",
-      completedAt: "5 hours ago"
-    }
-  ]);
+  const [completedTorrents, setCompletedTorrents] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -443,11 +446,22 @@ const useTorrents = () => {
     }
   }, [handleError, torrents]);
 
-  useEffect(() => {
-    loadTorrents();
-    const interval = setInterval(loadTorrents, POLLING_INTERVAL);
-    return () => clearInterval(interval);
-  }, [loadTorrents]);
+  const loadCompletedTorrents = useCallback(async () => {
+  try {
+    const data = await torrentService.getCompletedTorrents();
+    setCompletedTorrents(data);
+  } catch (error) {
+    handleError(error, 'load completed torrents');
+  }
+}, [handleError]);
+
+useEffect(() => {
+  loadCompletedTorrents(); 
+  loadTorrents();
+  const interval = setInterval(loadTorrents, POLLING_INTERVAL);
+  return () => clearInterval(interval);
+}, [loadTorrents, loadCompletedTorrents]);
+
 
   const addTorrent = useCallback(async (magnetLink) => {
     setIsLoading(true);
@@ -587,13 +601,13 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
               <SystemStatsCard
                 title="Total Download"
-                value={`${totalDownloadSpeed.toFixed(1)} MB/s`}
+                value={`${totalDownloadSpeed.toFixed(2)} MB/s`}
                 subtitle={`${downloadingTorrents.length} active downloads`}
                 color="text-emerald-400"
               />
               <SystemStatsCard
                 title="Total Upload"
-                value={`${totalUploadSpeed.toFixed(1)} MB/s`}
+                value={`${totalUploadSpeed.toFixed(2)} MB/s`}
                 subtitle={`${seedingTorrents.length} seeding`}
                 color="text-blue-400"
               />
