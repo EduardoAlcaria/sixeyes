@@ -1,0 +1,240 @@
+name: Frontend CI/CD Pipeline - Build & Deploy to Google Cloud
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'js/torrent-dashboard/**'
+      - '.github/workflows/frontend-ci-cd-pipeline.yml'
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - 'js/torrent-dashboard/**'
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  SERVICE_NAME: sixeyesfrontend-v.0.1
+  REGION: europe-west1
+  NODE_VERSION: '22'
+  WORKING_DIRECTORY: js/torrent-dashboard
+
+jobs:
+  test:
+    name: Build and Test Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/package-lock.json
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.WORKING_DIRECTORY }}/node_modules
+          key: npm-${{ hashFiles(format('{0}/package-lock.json', env.WORKING_DIRECTORY)) }}
+          restore-keys: |
+            npm-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint code (if eslint is configured)
+        run: npm run lint || echo "No lint script found, skipping..."
+        continue-on-error: true
+
+      - name: Build application
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Check build output
+        run: |
+          if [ ! -d "dist" ]; then
+            echo "Build failed - dist directory not found"
+            exit 1
+          fi
+          echo "Build successful - dist directory created"
+          ls -la dist/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: ${{ env.WORKING_DIRECTORY }}/dist/
+          retention-days: 1
+
+      - name: Check bundle size
+        run: |
+          echo "Checking bundle size..."
+          du -sh dist/
+          find dist/ -name "*.js" -exec du -h {} \; | sort -rh | head -10
+
+  merge-to-main:
+    name: Merge dev to main
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+      - name: Merge dev into master
+        run: |
+          git fetch origin master
+          git checkout master
+          git merge --no-ff origin/dev -m "Merge frontend changes from dev into master [skip ci]"
+          git push origin master
+
+  build-and-deploy:
+    name: Build Docker Image and Deploy to Cloud Run
+    needs: merge-to-main
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Configure Docker for GCP
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Create Artifact Registry repository (if not exists)
+        run: |
+          gcloud artifacts repositories describe ${{ env.SERVICE_NAME }} \
+            --location=${{ env.REGION }} || \
+          gcloud artifacts repositories create ${{ env.SERVICE_NAME }} \
+            --repository-format=docker \
+            --location=${{ env.REGION }} \
+            --description="Docker repository for Torrent Manager Frontend"
+        continue-on-error: true
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:latest \
+            -f DockerFile .
+
+      - name: Push Docker Image to Artifact Registry
+        run: |
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --platform=managed \
+            --region=${{ env.REGION }} \
+            --allow-unauthenticated \
+            --memory=512Mi \
+            --cpu=1 \
+            --min-instances=0 \
+            --max-instances=5 \
+            --port=5173 \
+            --set-env-vars="NODE_ENV=production,VITE_API_URL=${{ secrets.BACKEND_API_URL }}" \
+            --timeout=60
+
+      - name: Get Service URL
+        id: deploy
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --platform=managed \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_OUTPUT
+          echo "Deployed to: $SERVICE_URL"
+
+      - name: Health Check
+        run: |
+          sleep 20
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.deploy.outputs.SERVICE_URL }})
+          if [ "$RESPONSE" -eq 200 ] || [ "$RESPONSE" -eq 304 ]; then
+            echo "Health check passed with status code: $RESPONSE"
+          else
+            echo "Health check failed with status code: $RESPONSE"
+            exit 1
+          fi
+
+      - name: Create Deployment Tag
+        run: |
+          cd ../..
+          git tag -a "frontend-deploy-$(date +'%Y%m%d-%H%M%S')" -m "Frontend deployed to Cloud Run"
+          git push origin --tags
+
+      - name: Update Backend with Frontend URL
+        if: success()
+        run: |
+          echo "Frontend URL: ${{ steps.deploy.outputs.SERVICE_URL }}"
+          echo "Update your backend CORS settings to include this URL"
+
+  notify:
+    name: Notify Deployment Status
+    needs: [test, merge-to-main, build-and-deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Send Success Notification
+        if: ${{ needs.build-and-deploy.result == 'success' }}
+        run: |
+          echo "✅ Frontend deployment successful!"
+
+      - name: Send Failure Notification
+        if: ${{ needs.test.result == 'failure' || needs.build-and-deploy.result == 'failure' }}
+        run: |
+          echo "❌ Frontend deployment failed!"
+
+      - name: Comment Deployment Status on Commit
+        if: github.event_name == 'push'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ needs.build-and-deploy.result }}' === 'success' ? '✅ Deployed' : '❌ Failed';
+            const message = `Frontend ${status} to Google Cloud Run\n\nWorkflow: ${{ github.run_id }}`;
+            
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: message
+            });
