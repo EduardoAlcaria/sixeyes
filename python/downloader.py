@@ -45,7 +45,7 @@ def download_torrent_thread(torrent_data):
                 handle.pause()
                 ses.remove_torrent(handle)
                 return
-            time.sleep(1)
+            time.sleep(3)
 
         info = handle.torrent_file()
         info_hash = info.info_hash()
@@ -65,7 +65,7 @@ def download_torrent_thread(torrent_data):
             'downloadSpeed': 0,
             'uploadSpeed': 0,
             'status': Status.DOWNLOADING.value,
-            'size': total_size
+            'size': format_bytes(total_size),
         })
 
         while handle.status().state != lt.torrent_status.seeding:
@@ -75,7 +75,7 @@ def download_torrent_thread(torrent_data):
                 return
 
             if handle.is_paused():
-                time.sleep(1)
+                time.sleep(3)
                 continue
 
             s = handle.status()
@@ -86,7 +86,7 @@ def download_torrent_thread(torrent_data):
                 'downloadSpeed': s.download_rate / (1024 * 1024),
                 'uploadSpeed': s.upload_rate / (1024 * 1024),
             })
-            time.sleep(1)
+            time.sleep(3)
             print(f"Torrent {torrent_id} - Downloading speed: {torrent_data['downloadSpeed']:.2f} MB/s")
             print(f"Torrent {torrent_id} - Uploading speed: {torrent_data['uploadSpeed']:.2f} MB/s")
 
@@ -94,6 +94,9 @@ def download_torrent_thread(torrent_data):
             torrent_data.update({
                 'progress': 100,
                 'status': Status.SEEDING.value,
+                'downloadSpeed' : 0.0,
+                'uploadSpeed' : 0.0,
+                'peers' : 0,
             })
             print(f"Download finished: {torrent_data['title']}")
 
@@ -216,5 +219,16 @@ def get_used_storage():
 def test_end_point():
     return jsonify({"success": True})
 
+
+def format_bytes(bytes):
+
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if bytes < 1024.0:
+            return f"{bytes:.1f} {unit}"
+        bytes /= 1024.0
+    return f"{bytes:.1f} PB"
+
+
+
 if __name__ == "__main__":
-    app.run(port=9999, debug=True)
+    app.run(port=9999, debug=True, threaded=True)
