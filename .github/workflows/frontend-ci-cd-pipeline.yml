@@ -15,7 +15,7 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  SERVICE_NAME: torrent-manager-frontend
+  SERVICE_NAME: sixeyesfrontend-v.0.1
   REGION: europe-west1
   NODE_VERSION: '22'
   WORKING_DIRECTORY: js/torrent-dashboard
