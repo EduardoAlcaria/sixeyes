@@ -110,7 +110,7 @@ jobs:
 
   build-and-deploy:
     name: Build Docker Image and Deploy to Cloud Run
-    needs: merge-to-master
+    needs: merge-to-main
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     defaults:
@@ -209,7 +209,7 @@ jobs:
 
   notify:
     name: Notify Deployment Status
-    needs: [test, merge-to-master, build-and-deploy]
+    needs: [test, merge-to-main, build-and-deploy]
     runs-on: ubuntu-latest
     if: always()
     
@@ -217,12 +217,12 @@ jobs:
       - name: Send Success Notification
         if: ${{ needs.build-and-deploy.result == 'success' }}
         run: |
-          echo "✅ Frontend deployment successful!"
+          echo "Frontend deployment successful!"
 
       - name: Send Failure Notification
         if: ${{ needs.test.result == 'failure' || needs.build-and-deploy.result == 'failure' }}
         run: |
-          echo "❌ Frontend deployment failed!"
+          echo "Frontend deployment failed!"
 
       - name: Comment Deployment Status on Commit
         if: github.event_name == 'push'
