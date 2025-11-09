@@ -110,7 +110,7 @@ jobs:
 
   build-and-deploy:
     name: Build Docker Image and Deploy to Cloud Run
-    needs: merge-to-master
+    needs: merge-to-main
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     defaults:
@@ -209,7 +209,7 @@ jobs:
 
   notify:
     name: Notify Deployment Status
-    needs: [test, merge-to-master, build-and-deploy]
+    needs: [test, merge-to-main, build-and-deploy]
     runs-on: ubuntu-latest
     if: always()
     
