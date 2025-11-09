@@ -71,7 +71,7 @@ jobs:
           ls -la dist/
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: frontend-build
           path: ${{ env.WORKING_DIRECTORY }}/dist/
@@ -101,16 +101,16 @@ jobs:
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
 
-      - name: Merge dev into main
+      - name: Merge dev into master
         run: |
-          git fetch origin main
-          git checkout main
-          git merge --no-ff origin/dev -m "Merge frontend changes from dev into main [skip ci]"
-          git push origin main
+          git fetch origin master
+          git checkout master
+          git merge --no-ff origin/dev -m "Merge frontend changes from dev into master [skip ci]"
+          git push origin master
 
   build-and-deploy:
     name: Build Docker Image and Deploy to Cloud Run
-    needs: merge-to-main
+    needs: merge-to-master
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     defaults:
@@ -121,7 +121,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: master
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -209,7 +209,7 @@ jobs:
 
   notify:
     name: Notify Deployment Status
-    needs: [test, merge-to-main, build-and-deploy]
+    needs: [test, merge-to-master, build-and-deploy]
     runs-on: ubuntu-latest
     if: always()
     
