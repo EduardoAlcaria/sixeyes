@@ -1,0 +1,230 @@
+name: CI/CD Pipeline - Test, Merge & Deploy to Google Cloud
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - dev
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  SERVICE_NAME: torrent-manager-backend
+  REGION: europe-west1
+  JAVA_VERSION: '17'
+  MAVEN_CACHE_KEY: maven-${{ hashFiles('**/pom.xml') }}
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better analysis
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ env.MAVEN_CACHE_KEY }}
+          restore-keys: |
+            maven-
+
+      - name: Run Unit Tests
+        run: mvn clean test -Dtest=TorrentTest,TorrentControllerTest
+        continue-on-error: false
+
+      - name: Run Integration Tests
+        run: mvn test -Dtest=TorrentIntegrationTest
+        continue-on-error: false
+
+      - name: Run All Tests with Coverage
+        run: mvn clean verify jacoco:report
+
+      - name: Generate Coverage Badge
+        id: jacoco
+        uses: cicirello/jacoco-badge-generator@v2
+        with:
+          generate-branches-badge: true
+          jacoco-csv-file: target/site/jacoco/jacoco.csv
+          badges-directory: .github/badges
+
+      - name: Upload Coverage Reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: target/site/jacoco/
+
+      - name: Comment Test Results on PR
+        if: github.event_name == 'pull_request'
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: |
+            target/surefire-reports/*.xml
+          comment_mode: always
+
+      - name: Check Test Coverage Threshold
+        run: |
+          coverage=$(grep -oP '(?<=Total.*?)[0-9]+(?=%)' target/site/jacoco/index.html | head -1)
+          echo "Test coverage: ${coverage}%"
+          if [ "$coverage" -lt 80 ]; then
+            echo "::error::Test coverage is below 80% threshold"
+            exit 1
+          fi
+
+  merge-to-main:
+    name: Merge dev to main
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+      - name: Merge dev into main
+        run: |
+          git fetch origin main
+          git checkout main
+          git merge --no-ff origin/dev -m "Merge dev into main after successful tests [skip ci]"
+          git push origin main
+
+  build-and-deploy:
+    name: Build and Deploy to Google Cloud
+    needs: merge-to-main
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main  # Deploy from main branch after merge
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Configure Docker for GCP
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+                       -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:latest .
+
+      - name: Push Docker Image to Artifact Registry
+        run: |
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --platform=managed \
+            --region=${{ env.REGION }} \
+            --allow-unauthenticated \
+            --memory=1Gi \
+            --cpu=1 \
+            --min-instances=0 \
+            --max-instances=10 \
+            --port=9090 \
+            --set-env-vars="PYTHON_SERVICE_URL=${{ secrets.PYTHON_SERVICE_URL }}" \
+            --timeout=300
+
+      - name: Get Service URL
+        id: deploy
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --platform=managed \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_OUTPUT
+          echo "Deployed to: $SERVICE_URL"
+
+      - name: Health Check
+        run: |
+          sleep 30
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.deploy.outputs.SERVICE_URL }}/public/torrents/test)
+          if [ "$RESPONSE" -eq 200 ]; then
+            echo "Health check passed!"
+          else
+            echo "Health check failed with status code: $RESPONSE"
+            exit 1
+          fi
+
+      - name: Create Deployment Tag
+        run: |
+          git tag -a "deploy-$(date +'%Y%m%d-%H%M%S')" -m "Deployed to Cloud Run"
+          git push origin --tags
+
+  notify:
+    name: Notify Deployment Status
+    needs: [test, merge-to-main, build-and-deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Send Success Notification
+        if: ${{ needs.build-and-deploy.result == 'success' }}
+        run: |
+          echo "✅ Deployment successful!"
+          # Add Slack/Discord notification here if needed
+
+      - name: Send Failure Notification
+        if: ${{ needs.test.result == 'failure' || needs.build-and-deploy.result == 'failure' }}
+        run: |
+          echo "❌ Deployment failed!"
+          # Add Slack/Discord notification here if needed
+
+      - name: Comment Deployment Status on Commit
+        if: github.event_name == 'push'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ needs.build-and-deploy.result }}' === 'success' ? '✅ Deployed' : '❌ Failed';
+            const message = `${status} to Google Cloud Run\n\nWorkflow: ${{ github.run_id }}`;
+            
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: message
+            });
