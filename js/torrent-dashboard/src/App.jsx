@@ -557,7 +557,7 @@ const Dashboard = () => {
     removeTorrent
   } = useTorrents();
 
-  
+
   const { systemData, networkHistory } = useSystemMonitoring();
 
   useEffect(() => {
@@ -575,6 +575,9 @@ const Dashboard = () => {
   const totalUploadSpeed = torrents
     .reduce((sum, t) => sum + parseSpeed(t.uploadSpeed), 0);
 
+
+
+    
   
   const storageData = [
     { name: 'Used', value: systemData.storage.used, color: '#ef4444' },
