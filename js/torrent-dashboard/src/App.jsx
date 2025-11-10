@@ -557,7 +557,6 @@ const Dashboard = () => {
     removeTorrent
   } = useTorrents();
 
-
   const { systemData, networkHistory } = useSystemMonitoring();
 
   useEffect(() => {
