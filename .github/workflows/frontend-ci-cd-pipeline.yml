@@ -104,10 +104,10 @@ jobs:
 
       - name: Merge dev into main
         run: |
-          git fetch origin main
-          git checkout main
+          git fetch origin master
+          git checkout master
           git merge --no-ff origin/dev -m "Merge frontend changes from dev into main [skip ci]"
-          git push origin main
+          git push origin master
 
   build-and-deploy:
     name: Build Docker Image and Deploy to Cloud Run
@@ -122,7 +122,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: master
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
