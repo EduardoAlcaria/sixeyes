@@ -559,7 +559,6 @@ const Dashboard = () => {
 
   const { systemData, networkHistory } = useSystemMonitoring();
 
-  
   useEffect(() => {
     if (torrents.length === 0) {
       
