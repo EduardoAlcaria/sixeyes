@@ -15,8 +15,9 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  SERVICE_NAME: sixeyesfrontend-v0.1
-  REGION: europe-west1
+  SERVICE_NAME: sixeyesfrontend-v01
+  ARTIFACT_REPO: sixeyes-frontend-repo
+  REGION: southamerica-east1
   NODE_VERSION: '22'
   WORKING_DIRECTORY: js/torrent-dashboard
 
@@ -71,7 +72,7 @@ jobs:
           ls -la dist/
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: frontend-build
           path: ${{ env.WORKING_DIRECTORY }}/dist/
@@ -101,12 +102,12 @@ jobs:
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
 
-      - name: Merge dev into master
+      - name: Merge dev into main
         run: |
-          git fetch origin master
-          git checkout master
-          git merge --no-ff origin/dev -m "Merge frontend changes from dev into master [skip ci]"
-          git push origin master
+          git fetch origin main
+          git checkout main
+          git merge --no-ff origin/dev -m "Merge frontend changes from dev into main [skip ci]"
+          git push origin main
 
   build-and-deploy:
     name: Build Docker Image and Deploy to Cloud Run
@@ -121,7 +122,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: master
+          ref: main
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -139,30 +140,30 @@ jobs:
 
       - name: Create Artifact Registry repository (if not exists)
         run: |
-          gcloud artifacts repositories describe ${{ env.SERVICE_NAME }} \
+          gcloud artifacts repositories describe ${{ env.ARTIFACT_REPO }} \
             --location=${{ env.REGION }} || \
-          gcloud artifacts repositories create ${{ env.SERVICE_NAME }} \
+          gcloud artifacts repositories create ${{ env.ARTIFACT_REPO }} \
             --repository-format=docker \
             --location=${{ env.REGION }} \
-            --description="Docker repository for Torrent Manager Frontend"
+            --description="Docker repository for SixEyes Frontend"
         continue-on-error: true
 
       - name: Build Docker Image
         run: |
           docker build \
-            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/six-eyes-spring-react-integrator/${{ env.SERVICE_NAME }}:${{ github.sha }} \
-            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/six-eyes-spring-react-integrator/${{ env.SERVICE_NAME }}:latest \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE_NAME }}:latest \
             -f DockerFile .
 
       - name: Push Docker Image to Artifact Registry
         run: |
-          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/six-eyes-spring-react-integrator/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/six-eyes-spring-react-integrator/${{ env.SERVICE_NAME }}:latest
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE_NAME }}:latest
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/six-eyes-spring-react-integrator/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             --platform=managed \
             --region=${{ env.REGION }} \
             --allow-unauthenticated \
@@ -217,19 +218,19 @@ jobs:
       - name: Send Success Notification
         if: ${{ needs.build-and-deploy.result == 'success' }}
         run: |
-          echo "Frontend deployment successful!"
+          echo "✅ Frontend deployment successful!"
 
       - name: Send Failure Notification
         if: ${{ needs.test.result == 'failure' || needs.build-and-deploy.result == 'failure' }}
         run: |
-          echo "Frontend deployment failed!"
+          echo "❌ Frontend deployment failed!"
 
       - name: Comment Deployment Status on Commit
         if: github.event_name == 'push'
         uses: actions/github-script@v7
         with:
           script: |
-            const status = '${{ needs.build-and-deploy.result }}' === 'success' ? ' Deployed' : ' Failed';
+            const status = '${{ needs.build-and-deploy.result }}' === 'success' ? '✅ Deployed' : '❌ Failed';
             const message = `Frontend ${status} to Google Cloud Run\n\nWorkflow: ${{ github.run_id }}`;
             
             github.rest.repos.createCommitComment({
