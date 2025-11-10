@@ -16,7 +16,7 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   SERVICE_NAME: sixeyesfrontend-v01
-  ARTIFACT_REPO: sixeyes-frontend-repo
+  ARTIFACT_REPO: six-eyes-spring-react-integrator
   REGION: southamerica-east1
   NODE_VERSION: '22'
   WORKING_DIRECTORY: js/torrent-dashboard
@@ -138,16 +138,6 @@ jobs:
         run: |
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
-      - name: Create Artifact Registry repository (if not exists)
-        run: |
-          gcloud artifacts repositories describe ${{ env.ARTIFACT_REPO }} \
-            --location=${{ env.REGION }} || \
-          gcloud artifacts repositories create ${{ env.ARTIFACT_REPO }} \
-            --repository-format=docker \
-            --location=${{ env.REGION }} \
-            --description="Docker repository for SixEyes Frontend"
-        continue-on-error: true
-
       - name: Build Docker Image
         run: |
           docker build \
@@ -163,7 +153,7 @@ jobs:
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             --platform=managed \
             --region=${{ env.REGION }} \
             --allow-unauthenticated \
