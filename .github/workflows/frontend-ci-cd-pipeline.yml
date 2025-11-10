@@ -15,9 +15,9 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  SERVICE_NAME: sixeyesfrontend-v.0.1
+  SERVICE_NAME: sixeyesfrontend-v01
   REGION: southamerica-east1
-  ARTIFACT_REPO: six-eyes-spring-react-integrator
+  ARTIFACT_REPO: sixeyes-frontend-repo
   NODE_VERSION: '22'
   WORKING_DIRECTORY: js/torrent-dashboard
 
@@ -42,18 +42,10 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/package-lock.json
 
-      - name: Cache node modules
-        uses: actions/cache@v3
-        with:
-          path: ${{ env.WORKING_DIRECTORY }}/node_modules
-          key: npm-${{ hashFiles(format('{0}/package-lock.json', env.WORKING_DIRECTORY)) }}
-          restore-keys: |
-            npm-
-
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint code (if eslint is configured)
+      - name: Lint code
         run: npm run lint || echo "No lint script found, skipping..."
         continue-on-error: true
 
@@ -77,12 +69,6 @@ jobs:
           name: frontend-build
           path: ${{ env.WORKING_DIRECTORY }}/dist/
           retention-days: 1
-
-      - name: Check bundle size
-        run: |
-          echo "Checking bundle size..."
-          du -sh dist/
-          find dist/ -name "*.js" -exec du -h {} \; | sort -rh | head -10
 
   merge-to-main:
     name: Merge dev to main
@@ -140,12 +126,12 @@ jobs:
 
       - name: Create Artifact Registry repository (if not exists)
         run: |
-          gcloud artifacts repositories describe ${{ env.SERVICE_NAME }} \
+          gcloud artifacts repositories describe ${{ env.ARTIFACT_REPO }} \
             --location=${{ env.REGION }} || \
-          gcloud artifacts repositories create ${{ env.SERVICE_NAME }} \
+          gcloud artifacts repositories create ${{ env.ARTIFACT_REPO }} \
             --repository-format=docker \
             --location=${{ env.REGION }} \
-            --description="Docker repository for Torrent Manager Frontend"
+            --description="Docker repository for SixEyes Frontend"
         continue-on-error: true
 
       - name: Build Docker Image
@@ -196,17 +182,11 @@ jobs:
             exit 1
           fi
 
-      - name: Create Deployment Tag
+      - name: Tag Deployment
         run: |
           cd ../..
           git tag -a "frontend-deploy-$(date +'%Y%m%d-%H%M%S')" -m "Frontend deployed to Cloud Run"
           git push origin --tags
-
-      - name: Update Backend with Frontend URL
-        if: success()
-        run: |
-          echo "Frontend URL: ${{ steps.deploy.outputs.SERVICE_URL }}"
-          echo "Update your backend CORS settings to include this URL"
 
   notify:
     name: Notify Deployment Status
@@ -215,27 +195,10 @@ jobs:
     if: always()
     
     steps:
-      - name: Send Success Notification
+      - name: Success Notification
         if: ${{ needs.build-and-deploy.result == 'success' }}
-        run: |
-          echo "Frontend deployment successful!"
+        run: echo "Frontend deployment successful!"
 
-      - name: Send Failure Notification
+      - name: Failure Notification
         if: ${{ needs.test.result == 'failure' || needs.build-and-deploy.result == 'failure' }}
-        run: |
-          echo "Frontend deployment failed!"
-
-      - name: Comment Deployment Status on Commit
-        if: github.event_name == 'push'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const status = '${{ needs.build-and-deploy.result }}' === 'success' ? ' Deployed' : ' Failed';
-            const message = `Frontend ${status} to Google Cloud Run\n\nWorkflow: ${{ github.run_id }}`;
-            
-            github.rest.repos.createCommitComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: context.sha,
-              body: message
-            });
+        run: echo "Frontend deployment failed!"
