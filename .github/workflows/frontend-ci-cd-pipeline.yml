@@ -149,15 +149,12 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          docker build \
-            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/six-eyes-spring-react-integrator/${{ env.SERVICE_NAME }}:${{ github.sha }} \
-            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/six-eyes-spring-react-integrator/${{ env.SERVICE_NAME }}:latest \
-            -f DockerFile .
+          docker build -f DockerFile .
 
       - name: Push Docker Image to Artifact Registry
         run: |
-          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/six-eyes-spring-react-integrator/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/six-eyes-spring-react-integrator/${{ env.SERVICE_NAME }}:latest
+          docker push southamerica-east1-docker.pkg.dev/spartan-calling-472312-d5/six-eyes-spring-react-integrator/sixeyesfrontend-v.0.1:${{ github.sha }}
+        
 
       - name: Deploy to Cloud Run
         run: |
