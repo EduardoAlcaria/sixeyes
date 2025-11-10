@@ -10,7 +10,7 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  SERVICE_NAME: torrent-manager-backend
+  SERVICE_NAME: sixeyesmiddleware-v01 
   REGION: europe-west1
   JAVA_VERSION: '17'
   MAVEN_CACHE_KEY: maven-${{ hashFiles('**/pom.xml') }}
