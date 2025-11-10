@@ -579,9 +579,7 @@ const Dashboard = () => {
   const storageData = [
     { name: 'Used', value: systemData.storage.used, color: '#ef4444' },
     { name: 'Available', value: systemData.storage.available, color: '#10b981' },
-  ];
- 
-  
+  ]; 
   return (
     <div className="min-h-screen w-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 overflow-x-hidden">
       {isLoading && <LoadingOverlay message="Adding torrent..." />}
