@@ -14,7 +14,7 @@ env:
   ARTIFACT_REPO: six-eyes-spring-react-integrator
   REGION: southamerica-east1
   JAVA_VERSION: '24'
-  WORKING_DIRECTORY: java/src
+  WORKING_DIRECTORY: java/controller
 
 jobs:
   test:
