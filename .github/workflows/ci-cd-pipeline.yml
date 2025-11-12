@@ -10,7 +10,7 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  SERVICE_NAME: torrent-manager-backend
+  SERVICE_NAME: sixeyesmiddleware-v01 
   REGION: europe-west1
   JAVA_VERSION: '17'
   MAVEN_CACHE_KEY: maven-${{ hashFiles('**/pom.xml') }}
@@ -205,13 +205,13 @@ jobs:
       - name: Send Success Notification
         if: ${{ needs.build-and-deploy.result == 'success' }}
         run: |
-          echo "✅ Deployment successful!"
+          echo "Deployment successful!"
           # Add Slack/Discord notification here if needed
 
       - name: Send Failure Notification
         if: ${{ needs.test.result == 'failure' || needs.build-and-deploy.result == 'failure' }}
         run: |
-          echo "❌ Deployment failed!"
+          echo "Deployment failed!"
           # Add Slack/Discord notification here if needed
 
       - name: Comment Deployment Status on Commit
@@ -219,7 +219,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const status = '${{ needs.build-and-deploy.result }}' === 'success' ? '✅ Deployed' : '❌ Failed';
+            const status = '${{ needs.build-and-deploy.result }}' === 'success' ? 'Deployed' : 'Failed';
             const message = `${status} to Google Cloud Run\n\nWorkflow: ${{ github.run_id }}`;
             
             github.rest.repos.createCommitComment({
