@@ -1,4 +1,4 @@
-name: CI/CD Pipeline - Test, Merge & Deploy to Google Cloud
+name: Backend Java CI/CD Pipeline
 
 on:
   push:
@@ -63,7 +63,7 @@ jobs:
           badges-directory: .github/badges
 
       - name: Upload Coverage Reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: target/site/jacoco/
@@ -201,7 +201,6 @@ jobs:
     needs: [test, merge-to-main, build-and-deploy]
     runs-on: ubuntu-latest
     if: always()
-    
     steps:
       - name: Send Success Notification
         if: ${{ needs.build-and-deploy.result == 'success' }}
