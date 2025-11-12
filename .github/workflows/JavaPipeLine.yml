@@ -50,7 +50,8 @@ jobs:
         run: mvn clean test -Dtest=TorrentTest,TorrentControllerTest
 
       - name: Run Integration Tests
-        run: mvn test -Dtest=TorrentIntegrationTest
+        run: mvn test -Dtest=TorrentIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false
+        working-directory: ${{ env.WORKING_DIRECTORY }}
 
       - name: Run All Tests with Coverage
         run: mvn clean verify jacoco:report
