@@ -1,21 +1,16 @@
 FROM node:22-alpine
 
 WORKDIR /app
-
 COPY package*.json ./
-
 RUN npm install
-
-RUN npm i -g serve
-
+RUN npm install -g serve
 COPY . .
-
 RUN npm run build
 
 
-//maybe the fix should be adding an dollar sign to the PORT cost
 ENV PORT=5173
 
 EXPOSE 5173
 
-CMD [ "npm", "run", "dev"]
+
+CMD ["sh", "-c", "serve -s dist -l $PORT"]
