@@ -12,6 +12,8 @@ COPY . .
 
 RUN npm run build
 
+
+//maybe the fix should be adding an dollar sign to the PORT cost
 ENV PORT=5173
 
 EXPOSE 5173
