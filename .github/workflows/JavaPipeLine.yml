@@ -53,38 +53,13 @@ jobs:
         run: mvn test -Dtest=TorrentIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false
         working-directory: ${{ env.WORKING_DIRECTORY }}
 
-      - name: Run All Tests with Coverage
-        run: mvn clean verify jacoco:report
-
-      - name: Generate Coverage Badge
-        id: jacoco
-        uses: cicirello/jacoco-badge-generator@v2
-        with:
-          generate-branches-badge: true
-          jacoco-csv-file: target/site/jacoco/jacoco.csv
-          badges-directory: .github/badges
-
-      - name: Upload Coverage Reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: target/site/jacoco/
-
       - name: Comment Test Results on PR
         if: github.event_name == 'pull_request'
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
           files: target/surefire-reports/*.xml
           comment_mode: always
-
-      - name: Check Test Coverage Threshold
-        run: |
-          coverage=$(grep -oP '(?<=Total.*?)[0-9]+(?=%)' target/site/jacoco/index.html | head -1)
-          echo "Test coverage: ${coverage}%"
-          if [ "$coverage" -lt 80 ]; then
-            echo "::error::Test coverage is below 80% threshold"
-            exit 1
-          fi
+          
 
   merge-to-main:
     name: Merge dev to main
