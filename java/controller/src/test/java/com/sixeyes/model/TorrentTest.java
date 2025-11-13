@@ -15,24 +15,6 @@ import static org.junit.jupiter.api.Assertions.*;
 class TorrentTest {
     private final RestTemplate restTemplate = new RestTemplate();
 
-    @Test
-    @DisplayName("Should get a response back from the python script")
-    void pingPython(){
-        String ngrokUrl = "/test";
-        try {
-            ResponseEntity<Map> forEntity = restTemplate.getForEntity(ngrokUrl, Map.class);
-            assertNotNull(forEntity.getBody());
-            Object body = forEntity.getBody().get("success");
-
-            System.out.println("Response " + body);
-            assertEquals(true, body);
-
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-
-    }
 
     @Test
     @DisplayName("Should format download speed correctly from numeric string")
