@@ -21,7 +21,7 @@ import java.util.function.Consumer;
         "http://localhost:3000",
         "http://localhost:5173",
         "http://localhost:9000",
-        "https://sixeyesfrontend-v0-1-998526113594.europe-west1.run.app",
+        "https://sixeyesfrontend-v01-998526113594.southamerica-east1.run.app",
 })
 @RequestMapping("/public/torrents")
 
