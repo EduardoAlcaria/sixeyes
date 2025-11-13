@@ -12,5 +12,5 @@ ENV PORT=9090
 
 EXPOSE 9090
 
-# Run the JAR
+
 ENTRYPOINT ["java", "-jar", "controller-0.0.1-SNAPSHOT.jar"]

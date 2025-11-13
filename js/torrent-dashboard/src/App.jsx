@@ -13,7 +13,7 @@ import {
   Cell,
 } from 'recharts';
 
-const API_BASE_URL = 'http://localhost:9090';
+const API_BASE_URL = 'https://sixeyesmiddleware-v01-998526113594.southamerica-east1.run.app';
 const POLLING_INTERVAL = 5000;
 
 const systemService = {
@@ -592,7 +592,7 @@ const Dashboard = () => {
             </div>
           )}
         </div>
-        
+
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 w-full">
           <div className="flex-1 lg:flex-[3] space-y-4 w-full">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
