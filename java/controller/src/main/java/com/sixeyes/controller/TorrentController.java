@@ -188,6 +188,7 @@ public class TorrentController {
 
     @GetMapping("/test")
     public ResponseEntity<String> testEndpoint() {
+
         System.out.println("Test endpoint called!");
         return ResponseEntity.ok("Hello World from TorrentController!");
     }
