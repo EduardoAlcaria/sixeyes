@@ -13,6 +13,7 @@ import {
   Cell,
 } from 'recharts';
 
+
 const API_BASE_URL = 'https://sixeyesmiddleware-v01-998526113594.southamerica-east1.run.app';
 const POLLING_INTERVAL = 5000;
 
