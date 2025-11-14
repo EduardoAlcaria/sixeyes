@@ -210,15 +210,6 @@ const TorrentCard = ({ torrent, onRemove, onPause, onResume, onStop }) => {
               {torrent.status === 'Paused' ? '▶️' : '⏸️'}
             </button>
           )}
-          {canStop && (
-            <button 
-              onClick={() => onStop(torrent.id)}
-              className="text-gray-400 hover:text-red-400 transition-colors text-sm p-1 rounded hover:bg-red-400/10"
-              title="Stop"
-            >
-              ⏹️
-            </button>
-          )}
           <button 
             onClick={() => onRemove(torrent.id)}
             className="text-gray-400 hover:text-red-400 transition-colors text-lg p-1 rounded hover:bg-red-400/10"
