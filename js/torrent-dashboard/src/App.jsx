@@ -578,8 +578,8 @@ const Dashboard = () => {
       
       <div className="w-full h-full p-4 lg:p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-white mb-2">Dev ops is cool as hell</h1>
-          <p className="text-gray-400 text-sm">build test 1.90</p>
+          <h1 className="text-3xl font-bold text-white mb-2"></h1>
+          <p className="text-gray-400 text-sm"></p>
           {error && (
             <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
               {error}
