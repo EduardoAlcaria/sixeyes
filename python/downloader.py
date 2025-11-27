@@ -231,4 +231,4 @@ def format_bytes(bytes):
 
 
 if __name__ == "__main__":
-    app.run(port=9999, debug=True, threaded=True)
+    app.run(port=9999, debug=True)
