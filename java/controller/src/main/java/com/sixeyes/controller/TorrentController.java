@@ -69,7 +69,7 @@ public class TorrentController {
         }
 
         try {
-            Thread.sleep(2000);
+            Thread.sleep(1000);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
