@@ -68,6 +68,11 @@ public class TorrentController {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, " " + e.getMessage());
         }
 
+        try {
+            Thread.sleep(2000);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         getInfoPython.getStorage();
 
         return ResponseEntity.ok(torrents);
