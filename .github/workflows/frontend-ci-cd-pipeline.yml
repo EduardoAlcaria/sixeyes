@@ -16,7 +16,7 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   SERVICE_NAME: sixeyesfrontend-v01
-  ARTIFACT_REPO: sixeyes-frontend-repo
+  ARTIFACT_REPO: six-eyes-spring-react-integrator
   REGION: southamerica-east1
   NODE_VERSION: '22'
   WORKING_DIRECTORY: js/torrent-dashboard
