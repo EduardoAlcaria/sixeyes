@@ -1,4 +1,5 @@
 import os
+import shutil
 import threading
 import time
 
@@ -10,6 +11,27 @@ from app.domain.status import TorrentStatus
 DEFAULT_SAVE_PATH = os.getenv("DOWNLOAD_PATH", "downloads")
 os.makedirs(DEFAULT_SAVE_PATH, exist_ok=True)
 
+_SAVE_ROOT = os.path.realpath(DEFAULT_SAVE_PATH)
+
+MAX_FILES = int(os.getenv("MAX_TORRENT_FILES", "10000"))
+MAX_TOTAL_BYTES = int(os.getenv("MAX_TORRENT_BYTES", str(2 * 1024 ** 4)))  # 2 TiB
+
+
+def _safe_save_path(candidate: str | None) -> str:
+    """Resolve candidate under the download root; reject traversal/escape."""
+    if not candidate:
+        return _SAVE_ROOT
+    resolved = os.path.realpath(candidate)
+    if resolved != _SAVE_ROOT and not resolved.startswith(_SAVE_ROOT + os.sep):
+        raise ValueError(f"save_path escapes download root: {candidate}")
+    return resolved
+
+
+def magnet_from_torrent_bytes(data: bytes) -> str:
+    """Parse raw .torrent file bytes and return a magnet URI."""
+    info = lt.torrent_info(lt.bdecode(data))
+    return lt.make_magnet_uri(info)
+
 _session = lt.session()
 _session.listen_on(6881, 6891)
 
@@ -20,7 +42,7 @@ _threads: dict[int, threading.Thread] = {}
 
 
 def add_torrent(torrent_id: int, magnet: str, save_path: str | None = None) -> dict:
-    effective_path = save_path or DEFAULT_SAVE_PATH
+    effective_path = _safe_save_path(save_path)
     os.makedirs(effective_path, exist_ok=True)
 
     data = {
@@ -70,7 +92,6 @@ def remove(torrent_id: int) -> None:
 
 
 def get_storage_info() -> dict:
-    import shutil
     usage = shutil.disk_usage(DEFAULT_SAVE_PATH)
     return {"Used": usage.used, "Total": usage.total, "Available": usage.free}
 
@@ -136,7 +157,13 @@ def _download_thread(data: dict) -> None:
 
         info = handle.torrent_file()
         info_hash = info.info_hash()
-        total_size = sum(f.size for f in info.files())
+        files = info.files()
+        total_size = sum(f.size for f in files)
+
+        if not _validate_metadata(info, files, total_size, save_path):
+            data["status"] = TorrentStatus.ERROR.value
+            _cleanup_handle(handle)
+            return
 
         _handles[info_hash] = handle
         _hash_by_id[torrent_id] = info_hash
@@ -180,6 +207,34 @@ def _download_thread(data: dict) -> None:
         if torrent_id in _torrents:
             _torrents[torrent_id]["status"] = TorrentStatus.ERROR.value
         print(f"[torrent_service] Error on torrent {torrent_id}: {e}")
+
+
+def _validate_metadata(info, files, total_size: int, save_path: str) -> bool:
+    try:
+        if info.num_files() > MAX_FILES:
+            print(f"[torrent_service] Rejected: file count {info.num_files()} exceeds MAX_FILES={MAX_FILES}")
+            return False
+
+        if total_size > MAX_TOTAL_BYTES:
+            print(f"[torrent_service] Rejected: total size {total_size} exceeds MAX_TOTAL_BYTES={MAX_TOTAL_BYTES}")
+            return False
+
+        free = shutil.disk_usage(save_path).free
+        if free < total_size:
+            print(f"[torrent_service] Rejected: insufficient disk space ({free} < {total_size}) at {save_path}")
+            return False
+
+        root = os.path.realpath(save_path) + os.sep
+        for f in files:
+            target = os.path.realpath(os.path.join(save_path, f.path))
+            if not target.startswith(root):
+                print(f"[torrent_service] Rejected: file path escapes save root: {f.path}")
+                return False
+
+        return True
+    except Exception as e:
+        print(f"[torrent_service] Metadata validation error: {e}")
+        return False
 
 
 def _cleanup_handle(handle: lt.torrent_handle) -> None:
