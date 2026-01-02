@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 
 from app.services import torrent_service
@@ -49,6 +49,15 @@ def resume(body: TorrentIdRequest):
 def remove(body: TorrentIdRequest):
     torrent_service.remove(body.id)
     return {"success": True, "message": "Torrent removed"}
+
+
+@router.post("/parseMagnet")
+async def parse_magnet(file: UploadFile = File(...)):
+    raw = await file.read()
+    try:
+        return {"magnet": torrent_service.magnet_from_torrent_bytes(raw)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid .torrent file: {e}")
 
 
 @router.get("/test")
