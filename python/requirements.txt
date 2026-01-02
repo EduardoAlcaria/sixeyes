@@ -1,4 +1,5 @@
 libtorrent
 fastapi
+python-multipart
 uvicorn[standard]
 psutil
