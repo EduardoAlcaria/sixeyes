@@ -1,3 +1,4 @@
 libtorrent
-Flask
-flask-cors
+fastapi
+uvicorn[standard]
+psutil
