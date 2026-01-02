@@ -1,15 +1,18 @@
+FROM emmercm/libtorrent:2.0-alpine AS libtorrent_env
 
-FROM python:3.9-alpine
+FROM python:3.10-alpine
+
+RUN apk add --no-cache libstdc++ boost-system boost-python3
+
+COPY --from=libtorrent_env /usr/lib/ /usr/lib/
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-WORKDIR ./
-
-COPY requirements.txt .
-
-RUN pip install --no-cache-dir -r requirements.txt
-
 EXPOSE 9999
 
-
-CMD ["python", "downloader.py"]`
+CMD ["uvicorn", "wsgi:app", "--host", "0.0.0.0", "--port", "9999"]
