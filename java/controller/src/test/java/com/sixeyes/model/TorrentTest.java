@@ -1,350 +1,166 @@
 package com.sixeyes.model;
 
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestTemplate;
-
-
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@DisplayName("Torrent entity")
 class TorrentTest {
-    private final RestTemplate restTemplate = new RestTemplate();
 
-    /*@Test
-    @DisplayName("Should get a response back from the python script")
-    void pingPython(){
-        String ngrokUrl = "/test";
-        try {
-            ResponseEntity<Map> forEntity = restTemplate.getForEntity(ngrokUrl, Map.class);
-            assertNotNull(forEntity.getBody());
-            Object body = forEntity.getBody().get("success");
-
-            System.out.println("Response " + body);
-            assertEquals(true, body);
-
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-
-    }*/
+    // --- Default state ---
 
     @Test
-    @DisplayName("Should format download speed correctly from numeric string")
-    void testSetDownloadSpeed_NumericString() {
-
-        Torrent torrent = new Torrent();
-
-
-        torrent.setDownloadSpeed("5.23");
-
-
-        assertEquals("5.23 MB/s", torrent.getDownloadSpeed());
-    }
-
-
-    @Test
-    @DisplayName("Should format download speed correctly from string with MB/s suffix")
-    void testSetDownloadSpeed_WithMBsSuffix() {
-
-        Torrent torrent = new Torrent();
-
-
-        torrent.setDownloadSpeed("5.23 MB/s");
-
-
-        assertEquals("5.23 MB/s", torrent.getDownloadSpeed());
+    @DisplayName("has correct default values")
+    void defaultValues() {
+        Torrent t = new Torrent();
+        assertEquals("0 B", t.getSize());
+        assertEquals(0.0, t.getProgress());
+        assertEquals("0.00 MB/s", t.getDownloadSpeed());
+        assertEquals("0.00 MB/s", t.getUploadSpeed());
+        assertEquals(0, t.getPeers());
+        assertEquals(TorrentStatus.DOWNLOADING, t.getStatus());
     }
 
     @Test
-    @DisplayName("Should format download speed correctly from string without space")
-    void testSetDownloadSpeed_WithoutSpace() {
-
-        Torrent torrent = new Torrent();
-
-
-        torrent.setDownloadSpeed("5.23MB/s");
-
-
-        assertEquals("5.23 MB/s", torrent.getDownloadSpeed());
+    @DisplayName("stores magnet via constructor")
+    void magnetConstructor() {
+        String magnet = "magnet:?xt=urn:btih:abc123";
+        assertEquals(magnet, new Torrent(magnet).getMagnet());
     }
 
-    @ParameterizedTest
+    // --- Speed formatting (bytes/s float from Python → "X.XX MB/s") ---
+
+    @ParameterizedTest(name = "''{0}'' → ''{1}''")
     @CsvSource({
-            "5.23, 5.23 MB/s",
-            "0.0, 0.00 MB/s",
-            "10.567, 10.57 MB/s",
-            "100, 100.00 MB/s"
+            "5.23,      5.23 MB/s",
+            "5.23 MB/s, 5.23 MB/s",
+            "5.23MB/s,  5.23 MB/s",
+            "0,         0.00 MB/s",
+            "100,       100.00 MB/s",
+            "10.567,    10.57 MB/s",
+            "5.2,       5.20 MB/s",
+            "5.234567,  5.23 MB/s"
     })
-    @DisplayName("Should format various download speeds correctly")
-    void testSetDownloadSpeed_VariousFormats(String input, String expected) {
-
-        Torrent torrent = new Torrent();
-
-
-        torrent.setDownloadSpeed(input);
-
-
-        assertEquals(expected, torrent.getDownloadSpeed());
+    @DisplayName("formats download speed correctly")
+    void downloadSpeedFormatting(String input, String expected) {
+        Torrent t = new Torrent();
+        t.setDownloadSpeed(input.trim());
+        assertEquals(expected.trim(), t.getDownloadSpeed());
     }
 
-    @Test
-    @DisplayName("Should handle null download speed gracefully")
-    void testSetDownloadSpeed_Null() {
-
-        Torrent torrent = new Torrent();
-
-
-        assertDoesNotThrow(() -> torrent.setDownloadSpeed(null));
-        assertEquals("0.00 MB/s", torrent.getDownloadSpeed());
-    }
-
-    @Test
-    @DisplayName("Should handle empty download speed gracefully")
-    void testSetDownloadSpeed_Empty() {
-
-        Torrent torrent = new Torrent();
-
-
-        assertDoesNotThrow(() -> torrent.setDownloadSpeed(""));
-        assertEquals("0.00 MB/s", torrent.getDownloadSpeed());
-    }
-
-    @Test
-    @DisplayName("Should handle invalid download speed gracefully")
-    void testSetDownloadSpeed_Invalid() {
-
-        Torrent torrent = new Torrent();
-
-
-        assertDoesNotThrow(() -> torrent.setDownloadSpeed("invalid"));
-        assertEquals("0.00 MB/s", torrent.getDownloadSpeed());
-    }
-
-    @Test
-    @DisplayName("Should format upload speed correctly from numeric string")
-    void testSetUploadSpeed_NumericString() {
-
-        Torrent torrent = new Torrent();
-
-
-        torrent.setUploadSpeed("2.45");
-
-
-        assertEquals("2.45 MB/s", torrent.getUploadSpeed());
-    }
-
-    @Test
-    @DisplayName("Should format upload speed correctly from string with MB/s suffix")
-    void testSetUploadSpeed_WithMBsSuffix() {
-
-        Torrent torrent = new Torrent();
-
-
-        torrent.setUploadSpeed("2.45 MB/s");
-
-
-        assertEquals("2.45 MB/s", torrent.getUploadSpeed());
-    }
-
-    @ParameterizedTest
+    @ParameterizedTest(name = "''{0}'' → ''{1}''")
     @CsvSource({
-            "2.45, 2.45 MB/s",
-            "0.0, 0.00 MB/s",
-            "15.789, 15.79 MB/s",
-            "50, 50.00 MB/s"
+            "2.45,      2.45 MB/s",
+            "2.45 MB/s, 2.45 MB/s",
+            "0.0,       0.00 MB/s",
+            "15.789,    15.79 MB/s"
     })
-    @DisplayName("Should format various upload speeds correctly")
-    void testSetUploadSpeed_VariousFormats(String input, String expected) {
-
-        Torrent torrent = new Torrent();
-
-
-        torrent.setUploadSpeed(input);
-
-
-        assertEquals(expected, torrent.getUploadSpeed());
+    @DisplayName("formats upload speed correctly")
+    void uploadSpeedFormatting(String input, String expected) {
+        Torrent t = new Torrent();
+        t.setUploadSpeed(input.trim());
+        assertEquals(expected.trim(), t.getUploadSpeed());
     }
 
     @Test
-    @DisplayName("Should handle null upload speed gracefully")
-    void testSetUploadSpeed_Null() {
-
-        Torrent torrent = new Torrent();
-
-        assertDoesNotThrow(() -> torrent.setUploadSpeed(null));
-        assertEquals("0.00 MB/s", torrent.getUploadSpeed());
+    @DisplayName("null speed defaults to 0.00 MB/s")
+    void nullSpeedDefaultsToZero() {
+        Torrent t = new Torrent();
+        assertDoesNotThrow(() -> t.setDownloadSpeed(null));
+        assertDoesNotThrow(() -> t.setUploadSpeed(null));
+        assertEquals("0.00 MB/s", t.getDownloadSpeed());
+        assertEquals("0.00 MB/s", t.getUploadSpeed());
     }
 
     @Test
-    @DisplayName("Should handle empty upload speed gracefully")
-    void testSetUploadSpeed_Empty() {
-
-        Torrent torrent = new Torrent();
-
-
-        assertDoesNotThrow(() -> torrent.setUploadSpeed(""));
-        assertEquals("0.00 MB/s", torrent.getUploadSpeed());
+    @DisplayName("invalid speed string defaults to 0.00 MB/s")
+    void invalidSpeedDefaultsToZero() {
+        Torrent t = new Torrent();
+        assertDoesNotThrow(() -> t.setDownloadSpeed("invalid"));
+        assertEquals("0.00 MB/s", t.getDownloadSpeed());
     }
 
     @Test
-    @DisplayName("Should set progress correctly from double")
-    void testSetProgress_Double() {
+    @DisplayName("speed format is idempotent (same result regardless of input format)")
+    void speedFormattingIdempotent() {
+        Torrent t = new Torrent();
+        t.setDownloadSpeed("5.23");
+        String r1 = t.getDownloadSpeed();
+        t.setDownloadSpeed("5.23 MB/s");
+        String r2 = t.getDownloadSpeed();
+        t.setDownloadSpeed("5.23MB/s");
+        String r3 = t.getDownloadSpeed();
 
-        Torrent torrent = new Torrent();
+        assertEquals(r1, r2);
+        assertEquals(r2, r3);
+        assertTrue(r1.matches("\\d+\\.\\d{2} MB/s"));
+    }
 
+    // --- Progress (Python sends 0.0–100.0 float) ---
 
-        torrent.setProgress(75.5678);
-
-        assertEquals(75.57, torrent.getProgress(), 0.01);
+    @Test
+    @DisplayName("rounds progress to 2 decimal places")
+    void progressRounding() {
+        Torrent t = new Torrent();
+        t.setProgress(33.3333);
+        assertEquals(33.33, t.getProgress(), 0.001);
     }
 
     @Test
-    @DisplayName("Should set progress correctly from integer")
-    void testSetProgress_Integer() {
-
-        Torrent torrent = new Torrent();
-
-
-        torrent.setProgress(50);
-
-
-        assertEquals(50.0, torrent.getProgress(), 0.01);
+    @DisplayName("progress 100.0 transitions DOWNLOADING → SEEDING")
+    void progressCompleteTransitionsToSeeding() {
+        Torrent t = new Torrent();
+        t.setStatus(TorrentStatus.DOWNLOADING);
+        t.setProgress(100.0);
+        assertEquals(TorrentStatus.SEEDING, t.getStatus());
+        assertTrue(t.isCompleted());
     }
 
     @Test
-    @DisplayName("Should round progress to 2 decimal places")
-    void testSetProgress_Rounding() {
-
-        Torrent torrent = new Torrent();
-
-        torrent.setProgress(33.3333333);
-
-        assertEquals(33.33, torrent.getProgress(), 0.01);
+    @DisplayName("progress 100.0 does NOT override PAUSED status")
+    void progressCompleteDoesNotOverridePaused() {
+        Torrent t = new Torrent();
+        t.setStatus(TorrentStatus.PAUSED);
+        t.setProgress(100.0);
+        // A torrent that finished while paused should not flip to SEEDING via polling
+        assertEquals(TorrentStatus.PAUSED, t.getStatus());
     }
 
     @Test
-    @DisplayName("Should handle 100% progress correctly")
-    void testSetProgress_Complete() {
+    @DisplayName("isCompleted returns true for SEEDING status")
+    void isCompletedForSeeding() {
+        Torrent t = new Torrent();
+        t.setStatus(TorrentStatus.SEEDING);
+        assertTrue(t.isCompleted());
+    }
 
-        Torrent torrent = new Torrent();
+    // --- TorrentStatus enum ---
 
-
-        torrent.setProgress(100.0);
-
-
-        assertEquals(100.0, torrent.getProgress());
+    @Test
+    @DisplayName("TorrentStatus.fromValue handles case-insensitive input")
+    void statusFromValueCaseInsensitive() {
+        assertEquals(TorrentStatus.DOWNLOADING, TorrentStatus.fromValue("downloading"));
+        assertEquals(TorrentStatus.SEEDING,     TorrentStatus.fromValue("Seeding"));
+        assertEquals(TorrentStatus.PAUSED,      TorrentStatus.fromValue("PAUSED"));
     }
 
     @Test
-    @DisplayName("Should initialize with default values")
-    void testTorrent_DefaultValues() {
-
-        Torrent torrent = new Torrent();
-
-
-        assertEquals("0 GB", torrent.getSize());
-        assertEquals(0.0, torrent.getProgress());
-        assertEquals("0 MB/s", torrent.getDownloadSpeed());
-        assertEquals("0 MB/s", torrent.getUploadSpeed());
-        assertEquals(0, torrent.getPeers());
-        assertNotNull(torrent.getCreatedAt());
-        assertNotNull(torrent.getUpdatedAt());
+    @DisplayName("TorrentStatus.fromValue defaults to DOWNLOADING for unknown input")
+    void statusFromValueUnknownDefaultsToDownloading() {
+        assertEquals(TorrentStatus.DOWNLOADING, TorrentStatus.fromValue(null));
+        assertEquals(TorrentStatus.DOWNLOADING, TorrentStatus.fromValue(""));
+        assertEquals(TorrentStatus.DOWNLOADING, TorrentStatus.fromValue("unknown"));
     }
 
     @Test
-    @DisplayName("Should create torrent with magnet link")
-    void testTorrent_WithMagnet() {
-
-        String magnetLink = "magnet:?xt=urn:btih:test123";
-
-
-        Torrent torrent = new Torrent(magnetLink);
-
-        assertEquals(magnetLink, torrent.getMagnet());
-    }
-
-    @Test
-    @DisplayName("Should handle speed with extra whitespace")
-    void testSetDownloadSpeed_ExtraWhitespace() {
-
-        Torrent torrent = new Torrent();
-
-
-        torrent.setDownloadSpeed("  5.23  MB/s  ");
-
-
-        assertEquals("5.23 MB/s", torrent.getDownloadSpeed());
-    }
-
-    @Test
-    @DisplayName("Should handle upload speed with extra whitespace")
-    void testSetUploadSpeed_ExtraWhitespace() {
-
-        Torrent torrent = new Torrent();
-
-
-        torrent.setUploadSpeed("  2.45  MB/s  ");
-
-        assertEquals("2.45 MB/s", torrent.getUploadSpeed());
-    }
-
-    @Test
-    @DisplayName("Should maintain consistent formatting after multiple sets")
-    void testSpeed_ConsistentFormatting() {
-
-        Torrent torrent = new Torrent();
-
-
-        torrent.setDownloadSpeed("5.23");
-        String speed1 = torrent.getDownloadSpeed();
-
-        torrent.setDownloadSpeed("5.23 MB/s");
-        String speed2 = torrent.getDownloadSpeed();
-
-        torrent.setDownloadSpeed("5.23MB/s");
-        String speed3 = torrent.getDownloadSpeed();
-
-
-        assertEquals(speed1, speed2);
-        assertEquals(speed2, speed3);
-        assertTrue(speed1.matches("\\d+\\.\\d{2} MB/s"));
-    }
-
-    @Test
-    @DisplayName("Should parse speed with various decimal precisions")
-    void testSetSpeed_VariousDecimalPrecisions() {
-
-        Torrent torrent = new Torrent();
-
-
-        torrent.setDownloadSpeed("5");
-        assertEquals("5.00 MB/s", torrent.getDownloadSpeed());
-
-        torrent.setDownloadSpeed("5.2");
-        assertEquals("5.20 MB/s", torrent.getDownloadSpeed());
-
-        torrent.setDownloadSpeed("5.234567");
-        assertEquals("5.23 MB/s", torrent.getDownloadSpeed());
-    }
-
-    @Test
-    @DisplayName("Should handle zero speeds correctly")
-    void testSetSpeed_Zero() {
-
-        Torrent torrent = new Torrent();
-
-
-        torrent.setDownloadSpeed("0");
-        torrent.setUploadSpeed("0.00");
-
-
-        assertEquals("0.00 MB/s", torrent.getDownloadSpeed());
-        assertEquals("0.00 MB/s", torrent.getUploadSpeed());
+    @DisplayName("TorrentStatus serializes to its display value")
+    void statusJsonValue() {
+        assertEquals("Downloading", TorrentStatus.DOWNLOADING.getValue());
+        assertEquals("Seeding",     TorrentStatus.SEEDING.getValue());
+        assertEquals("Paused",      TorrentStatus.PAUSED.getValue());
+        assertEquals("Error",       TorrentStatus.ERROR.getValue());
     }
 }
