@@ -16,4 +16,6 @@ public interface TorrentRepository extends JpaRepository<Torrent, Long> {
     List<Torrent> findByStatus(TorrentStatus status);
 
     List<Torrent> findByStatusIn(Collection<TorrentStatus> statuses);
+
+    List<Torrent> findByInstallStatus(String installStatus);
 }
