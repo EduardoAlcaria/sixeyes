@@ -1,4 +1,5 @@
 import { HardDrive } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import type { SystemInfo } from '@/types'
@@ -9,14 +10,16 @@ function gb(value: number): string {
 }
 
 export function StorageChart({ system }: { system: SystemInfo }) {
-  const { total, used, available } = system.storage
+  const { total, used, available, device } = system.storage
   const pct = total > 0 ? Math.round((used / total) * 100) : 0
+  const label = device && device !== 'downloads' ? device : 'Downloads'
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <HardDrive className="size-4 text-muted-foreground" /> Storage
+          <Badge variant="secondary" className="ml-auto font-mono">{label}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -27,7 +30,9 @@ export function StorageChart({ system }: { system: SystemInfo }) {
           </span>
         </div>
         <Progress value={pct} className="h-2" />
-        <p className="text-sm text-muted-foreground">{gb(available)} free</p>
+        <p className="text-sm text-muted-foreground">
+          {gb(available)} free on {label}
+        </p>
       </CardContent>
     </Card>
   )
