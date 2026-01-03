@@ -88,6 +88,7 @@ export const torrentApi = {
   pause: (id: number) => request<Torrent>(`/torrents/${id}/pause`, { method: 'PUT' }),
   resume: (id: number) => request<Torrent>(`/torrents/${id}/resume`, { method: 'PUT' }),
   remove: (id: number) => request<{ message: string }>(`/torrents/${id}/removeTorrent`, { method: 'DELETE' }),
+  install: (id: number) => request<Torrent>(`/torrents/${id}/install`, { method: 'POST' }),
 }
 
 export const systemApi = {
