@@ -65,6 +65,27 @@ public class TorrentController {
         return ResponseEntity.ok(Map.of("message", "Torrent removed", "id", id.toString()));
     }
 
+    // --- Host auto-installer ---
+
+    @PostMapping("/{id}/install")
+    public ResponseEntity<TorrentResponse> install(@PathVariable @Positive Long id) {
+        return ResponseEntity.ok(torrentService.requestInstall(id));
+    }
+
+    @GetMapping("/install/queue")
+    public ResponseEntity<List<com.sixeyes.dto.response.InstallJob>> installQueue() {
+        return ResponseEntity.ok(torrentService.getInstallQueue());
+    }
+
+    @PutMapping("/{id}/install/status")
+    public ResponseEntity<Map<String, String>> installStatus(
+            @PathVariable @Positive Long id,
+            @Valid @RequestBody com.sixeyes.dto.request.InstallStatusRequest request
+    ) {
+        torrentService.updateInstallStatus(id, request.status(), request.message());
+        return ResponseEntity.ok(Map.of("status", request.status()));
+    }
+
     @GetMapping("/test")
     public ResponseEntity<Map<String, String>> health() {
         return ResponseEntity.ok(Map.of("status", "UP", "service", "SixEyes"));
