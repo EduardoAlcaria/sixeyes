@@ -63,10 +63,10 @@ public class TorrentSyncService {
                 case "progress" -> torrent.setProgress(asDouble(value));
 
                 case "downloadSpeed" ->
-                        torrent.setDownloadSpeed(TorrentService.formatSpeed(asString(value)));
+                        torrent.setDownloadSpeed(TorrentService.formatSpeed(asSpeedString(value)));
 
                 case "uploadSpeed" ->
-                        torrent.setUploadSpeed(TorrentService.formatSpeed(asString(value)));
+                        torrent.setUploadSpeed(TorrentService.formatSpeed(asSpeedString(value)));
 
                 case "status" ->
                         handleStatusUpdate(torrent, asString(value));
@@ -120,6 +120,12 @@ public class TorrentSyncService {
     }
 
     private String asString(Object o) {
+        return o instanceof String s ? s : null;
+    }
+
+    // Engine sends speeds as numbers (MB/s); stringify so formatSpeed can parse them.
+    private String asSpeedString(Object o) {
+        if (o instanceof Number n) return n.toString();
         return o instanceof String s ? s : null;
     }
 
