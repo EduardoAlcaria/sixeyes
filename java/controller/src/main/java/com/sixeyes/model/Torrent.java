@@ -69,6 +69,26 @@ public class Torrent {
         }
     }
 
+    public void setDownloadSpeed(String value) {
+        this.downloadSpeed = formatSpeed(value);
+    }
+
+    public void setUploadSpeed(String value) {
+        this.uploadSpeed = formatSpeed(value);
+    }
+
+    private static String formatSpeed(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return DEFAULT_SPEED;
+        }
+        try {
+            double mbps = Double.parseDouble(raw.replace("MB/s", "").trim());
+            return String.format(java.util.Locale.US, "%.2f MB/s", mbps);
+        } catch (NumberFormatException e) {
+            return DEFAULT_SPEED;
+        }
+    }
+
     public boolean isCompleted() {
         return status == TorrentStatus.SEEDING || progress >= 100.0;
     }
