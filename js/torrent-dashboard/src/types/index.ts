@@ -22,7 +22,7 @@ export interface CompletedTorrent {
 }
 
 export interface SystemInfo {
-  storage: { total: number; used: number; available: number }
+  storage: { total: number; used: number; available: number; device?: string }
   network: { downloadSpeed: number; uploadSpeed: number }
 }
 
@@ -42,4 +42,15 @@ export interface DiskInfo {
 
 export interface Settings {
   downloadPath: string
+}
+
+export interface FsEntry {
+  name: string
+  path: string
+}
+
+export interface BrowseResult {
+  path: string
+  parent: string | null
+  entries: FsEntry[]
 }
