@@ -14,6 +14,7 @@ public record TorrentResponse(
         int peers,
         String eta,
         String status,
+        String installStatus,
         String createdAt,
         String updatedAt
 ) {
@@ -30,6 +31,7 @@ public record TorrentResponse(
                 t.getPeers(),
                 t.getEta(),
                 t.getStatus().getValue(),
+                t.getInstallStatus(),
                 t.getCreatedAt()  != null ? t.getCreatedAt().format(FMT)  : null,
                 t.getUpdatedAt()  != null ? t.getUpdatedAt().format(FMT)  : null
         );
