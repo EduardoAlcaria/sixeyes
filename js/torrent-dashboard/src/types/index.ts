@@ -8,17 +8,21 @@ export interface Torrent {
   peers: number
   eta: string | null
   status: TorrentStatus
+  installStatus: InstallStatus
   createdAt: string | null
   updatedAt: string | null
 }
 
 export type TorrentStatus = 'Downloading' | 'Seeding' | 'Paused' | 'Stopped' | 'Error'
 
+export type InstallStatus = 'NONE' | 'REQUESTED' | 'INSTALLING' | 'INSTALLED' | 'FAILED'
+
 export interface CompletedTorrent {
   id: number
   title: string | null
   size: string
   completedAt: string
+  installStatus: InstallStatus
 }
 
 export interface SystemInfo {
