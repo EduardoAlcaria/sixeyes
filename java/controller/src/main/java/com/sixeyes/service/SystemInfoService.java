@@ -34,10 +34,13 @@ public class SystemInfoService {
                 ? toDouble(raw.get("Total"))
                 : usedBytes + freeBytes;
 
+        String device = raw.get("Device") != null ? raw.get("Device").toString() : "downloads";
+
         StorageInfo storage = new StorageInfo(
                 round(totalBytes / GB),
                 round(usedBytes  / GB),
-                round(freeBytes  / GB)
+                round(freeBytes  / GB),
+                device
         );
 
         double totalDownload = torrentRepository.findByStatus(TorrentStatus.DOWNLOADING).stream()
@@ -53,6 +56,14 @@ public class SystemInfoService {
 
     public List<DiskInfo> getDiskList() {
         return pythonClient.fetchDisks();
+    }
+
+    public Map<String, Object> browse(String path) {
+        return pythonClient.browse(path);
+    }
+
+    public Map<String, Object> makeDir(String parent, String name) {
+        return pythonClient.makeDir(parent, name);
     }
 
     private static double toDouble(Object value) {
