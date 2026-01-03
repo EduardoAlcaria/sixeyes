@@ -269,11 +269,14 @@ def _download_thread(data: dict) -> None:
                 continue
 
             s = handle.status()
+            remaining = s.total_wanted - s.total_wanted_done
+            eta = _format_eta(remaining / s.download_rate) if (s.download_rate > 0 and remaining > 0) else None
             data.update({
                 "progress": round(s.progress * 100, 2),
                 "peers": s.num_peers,
                 "downloadSpeed": round(s.download_rate / (1024 * 1024), 4),
                 "uploadSpeed": round(s.upload_rate / (1024 * 1024), 4),
+                "eta": eta,
             })
             time.sleep(2)
 
@@ -334,3 +337,19 @@ def _format_bytes(n: int) -> str:
             return f"{n:.1f} {unit}"
         n /= 1024.0
     return f"{n:.1f} PB"
+
+
+def _format_eta(seconds: float) -> str | None:
+    seconds = int(seconds)
+    if seconds <= 0:
+        return None
+    d, rem = divmod(seconds, 86400)
+    h, rem = divmod(rem, 3600)
+    m, s = divmod(rem, 60)
+    if d:
+        return f"{d}d {h}h"
+    if h:
+        return f"{h}h {m}m"
+    if m:
+        return f"{m}m {s}s"
+    return f"{s}s"
