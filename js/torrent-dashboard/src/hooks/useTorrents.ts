@@ -85,6 +85,15 @@ export function useTorrents() {
     }
   }, [showError])
 
+  const installGame = useCallback(async (id: number) => {
+    try {
+      await torrentApi.install(id)
+      await fetchCompleted()
+    } catch (e) {
+      showError((e as Error).message)
+    }
+  }, [fetchCompleted, showError])
+
   const removeTorrent = useCallback(async (id: number) => {
     let prev: Torrent[] = []
     setTorrents(p => { prev = p; return p.filter(t => t.id !== id) }) // optimistic
@@ -106,5 +115,6 @@ export function useTorrents() {
     pauseTorrent,
     resumeTorrent,
     removeTorrent,
+    installGame,
   }
 }
