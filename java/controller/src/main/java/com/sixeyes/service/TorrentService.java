@@ -2,6 +2,7 @@ package com.sixeyes.service;
 
 import com.sixeyes.dto.response.CompletedTorrentResponse;
 import com.sixeyes.dto.response.DiskInfo;
+import com.sixeyes.dto.response.InstallJob;
 import com.sixeyes.dto.response.TorrentResponse;
 import com.sixeyes.exception.DuplicateMagnetException;
 import com.sixeyes.exception.InsufficientStorageException;
@@ -49,7 +50,9 @@ public class TorrentService {
                 : settingsService.getDownloadPath();
         validateStorage(downloadPath);
 
-        Torrent torrent = torrentRepository.save(new Torrent(magnetLink));
+        Torrent newTorrent = new Torrent(magnetLink);
+        newTorrent.setSavePath(downloadPath);
+        Torrent torrent = torrentRepository.save(newTorrent);
         pythonClient.startDownload(torrent.getId(), torrent.getMagnet(), downloadPath);
 
         log.info("Torrent added: id={} path={}", torrent.getId(), downloadPath);
@@ -106,6 +109,31 @@ public class TorrentService {
         pythonClient.remove(torrent.getId(), torrent.getMagnet());
         torrentRepository.deleteById(id);
         log.info("Torrent removed: id={}", id);
+    }
+
+    // --- Host auto-installer (manual trigger -> host watcher executes setup.exe) ---
+
+    public TorrentResponse requestInstall(Long id) {
+        Torrent torrent = findOrThrow(id);
+        torrent.setInstallStatus("REQUESTED");
+        torrent.setInstallMessage(null);
+        log.info("Install requested: id={} path={}", id, torrent.getSavePath());
+        return TorrentResponse.from(torrentRepository.save(torrent));
+    }
+
+    @Transactional(readOnly = true)
+    public List<InstallJob> getInstallQueue() {
+        return torrentRepository.findByInstallStatus("REQUESTED").stream()
+                .map(t -> new InstallJob(t.getId(), t.getTitle(), t.getSavePath()))
+                .toList();
+    }
+
+    public void updateInstallStatus(Long id, String status, String message) {
+        Torrent torrent = findOrThrow(id);
+        torrent.setInstallStatus(status);
+        torrent.setInstallMessage(message);
+        torrentRepository.save(torrent);
+        log.info("Install status: id={} status={} msg={}", id, status, message);
     }
 
     private void validateStorage(String downloadPath) {
