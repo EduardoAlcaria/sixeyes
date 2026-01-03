@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +35,8 @@ public class PythonClientService {
     ) {}
 
     private record TorrentIdBody(long id, String magnet) {}
+
+    private record MkdirBody(String parent, String name) {}
 
     public void startDownload(Long id, String magnet, String downloadPath) {
         exchange("/python/add", HttpMethod.POST, new StartDownloadBody(id, magnet, downloadPath));
@@ -149,6 +153,36 @@ public class PythonClientService {
 
         } catch (RestClientException e) {
             throw engineException("GET /python/systemInfo/getDisks", e);
+        }
+    }
+
+    public Map<String, Object> browse(String path) {
+        String suffix = (path != null && !path.isBlank())
+                ? "?path=" + URLEncoder.encode(path, StandardCharsets.UTF_8)
+                : "";
+        try {
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url("/python/systemInfo/browse") + suffix, HttpMethod.GET, jsonEntity(null),
+                    new ParameterizedTypeReference<>() {}
+            );
+            Map<String, Object> body = response.getBody();
+            return body != null ? body : Map.of("path", "", "entries", List.of());
+        } catch (RestClientException e) {
+            throw engineException("GET /python/systemInfo/browse", e);
+        }
+    }
+
+    public Map<String, Object> makeDir(String parent, String name) {
+        try {
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url("/python/systemInfo/mkdir"), HttpMethod.POST,
+                    jsonEntity(new MkdirBody(parent, name)),
+                    new ParameterizedTypeReference<>() {}
+            );
+            Map<String, Object> body = response.getBody();
+            return body != null ? body : Map.of();
+        } catch (RestClientException e) {
+            throw engineException("POST /python/systemInfo/mkdir", e);
         }
     }
 
