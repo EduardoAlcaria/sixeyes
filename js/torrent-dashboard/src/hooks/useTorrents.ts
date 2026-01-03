@@ -41,10 +41,10 @@ export function useTorrents() {
     return () => clearInterval(id)
   }, [fetchTorrents, fetchCompleted])
 
-  const addTorrent = useCallback(async (magnet: string) => {
+  const addTorrent = useCallback(async (magnet: string, downloadPath?: string) => {
     setLoading(true)
     try {
-      await torrentApi.add(magnet)
+      await torrentApi.add(magnet, downloadPath)
       await fetchTorrents()
       setError(null)
     } catch (e) {
@@ -54,10 +54,10 @@ export function useTorrents() {
     }
   }, [fetchTorrents, showError])
 
-  const addTorrentFile = useCallback(async (file: File) => {
+  const addTorrentFile = useCallback(async (file: File, downloadPath?: string) => {
     setLoading(true)
     try {
-      await torrentApi.addFile(file)
+      await torrentApi.addFile(file, downloadPath)
       await fetchTorrents()
       setError(null)
     } catch (e) {
