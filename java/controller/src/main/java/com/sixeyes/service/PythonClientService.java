@@ -15,8 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -157,12 +158,16 @@ public class PythonClientService {
     }
 
     public Map<String, Object> browse(String path) {
-        String suffix = (path != null && !path.isBlank())
-                ? "?path=" + URLEncoder.encode(path, StandardCharsets.UTF_8)
-                : "";
+        // Build the URI so the path query param is percent-encoded exactly once
+        // (a pre-encoded String template would be double-encoded by RestTemplate).
+        UriComponentsBuilder b = UriComponentsBuilder.fromUriString(url("/python/systemInfo/browse"));
+        if (path != null && !path.isBlank()) {
+            b.queryParam("path", path);
+        }
+        URI uri = b.build().encode().toUri();
         try {
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    url("/python/systemInfo/browse") + suffix, HttpMethod.GET, jsonEntity(null),
+                    uri, HttpMethod.GET, jsonEntity(null),
                     new ParameterizedTypeReference<>() {}
             );
             Map<String, Object> body = response.getBody();
