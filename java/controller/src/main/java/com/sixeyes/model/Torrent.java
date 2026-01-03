@@ -46,6 +46,16 @@ public class Torrent {
 
     private String eta;
 
+    @Column(name = "save_path", length = 4000)
+    private String savePath;
+
+    // NONE | REQUESTED | INSTALLING | INSTALLED | FAILED — drives the host auto-installer
+    @Column(name = "install_status", nullable = false)
+    private String installStatus = "NONE";
+
+    @Column(name = "install_message", length = 2000)
+    private String installMessage;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TorrentStatus status = TorrentStatus.DOWNLOADING;
