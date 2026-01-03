@@ -1,4 +1,4 @@
-import type { CompletedTorrent, DiskInfo, Settings, SystemInfo, Torrent } from '../types'
+import type { BrowseResult, CompletedTorrent, DiskInfo, Settings, SystemInfo, Torrent } from '../types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
@@ -57,15 +57,16 @@ export const authApi = {
 }
 
 export const torrentApi = {
-  add: (magnet: string) =>
+  add: (magnet: string, downloadPath?: string) =>
     request<Torrent>('/torrents/add', {
       method: 'POST',
-      body: JSON.stringify({ magnet }),
+      body: JSON.stringify({ magnet, downloadPath: downloadPath ?? null }),
     }),
-  addFile: async (file: File): Promise<Torrent> => {
+  addFile: async (file: File, downloadPath?: string): Promise<Torrent> => {
     const token = getToken()
     const form = new FormData()
     form.append('file', file)
+    if (downloadPath) form.append('downloadPath', downloadPath)
     const res = await fetch(`${BASE_URL}/torrents/addFile`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -92,6 +93,13 @@ export const torrentApi = {
 export const systemApi = {
   getInfo: () => request<SystemInfo>('/system/info'),
   getDisks: () => request<DiskInfo[]>('/system/disks'),
+  browse: (path?: string) =>
+    request<BrowseResult>(`/system/browse${path ? `?path=${encodeURIComponent(path)}` : ''}`),
+  mkdir: (parent: string, name: string) =>
+    request<{ path: string }>('/system/mkdir', {
+      method: 'POST',
+      body: JSON.stringify({ parent, name }),
+    }),
 }
 
 export const settingsApi = {
