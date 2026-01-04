@@ -49,8 +49,9 @@ public class Torrent {
     @Column(name = "save_path", length = 4000)
     private String savePath;
 
-    // NONE | REQUESTED | INSTALLING | INSTALLED | FAILED — drives the host auto-installer
-    @Column(name = "install_status", nullable = false)
+    // NONE | REQUESTED | INSTALLING | INSTALLED | FAILED — drives the host auto-installer.
+    // Nullable so ddl-auto=update can add it to a populated table; null is treated as NONE.
+    @Column(name = "install_status")
     private String installStatus = "NONE";
 
     @Column(name = "install_message", length = 2000)
