@@ -17,8 +17,10 @@
 [CmdletBinding()]
 param(
   [string]$ApiBase        = 'http://localhost:9090/api/v1',
-  [string]$Username       = 'adm@adm.com',
-  [string]$Password       = 'EDUtheo@13',
+  # Credentials come from the environment (or you're prompted) — never hardcode them.
+  #   $env:SIXEYES_USERNAME / $env:SIXEYES_PASSWORD
+  [string]$Username       = $(if ($env:SIXEYES_USERNAME) { $env:SIXEYES_USERNAME } else { 'adm@adm.com' }),
+  [string]$Password       = $env:SIXEYES_PASSWORD,
   [string]$InstallRoot    = 'D:\Games',
   # Host folder that the agent mounts as /app/downloads (this repo's ./downloads):
   [string]$DownloadsHostDir = (Join-Path $PSScriptRoot '..\downloads' | Resolve-Path -ErrorAction SilentlyContinue),
@@ -47,6 +49,11 @@ function Convert-ToHostPath([string]$p) {
 # --- API helpers ------------------------------------------------------------
 $script:Token = $null
 function Connect-Api {
+  if (-not $Password) {
+    $cred = Get-Credential -UserName $Username -Message 'SixEyes API password'
+    $script:Username = $cred.UserName
+    $script:Password = $cred.GetNetworkCredential().Password
+  }
   $body = @{ username = $Username; password = $Password } | ConvertTo-Json
   $res  = Invoke-RestMethod -Method Post -Uri "$ApiBase/auth/login" -ContentType 'application/json' -Body $body
   $script:Token = $res.token
