@@ -13,8 +13,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Drop root — run as unprivileged user
-RUN adduser -D -H sixeyes && chown -R sixeyes /app
+# Drop root — run as unprivileged user. Pre-create the resume-state dir and
+# chown it so the named volume mounted there is writable by sixeyes (Docker
+# seeds a fresh named volume from the image path's ownership).
+RUN mkdir -p /app/state && adduser -D -H sixeyes && chown -R sixeyes /app
 USER sixeyes
 
 EXPOSE 9999
