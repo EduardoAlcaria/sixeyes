@@ -17,10 +17,12 @@
 [CmdletBinding()]
 param(
   [string]$ApiBase        = 'http://localhost:9090/api/v1',
-  # Credentials come from the environment (or you're prompted) — never hardcode them.
-  #   $env:SIXEYES_USERNAME / $env:SIXEYES_PASSWORD
-  [string]$Username       = $(if ($env:SIXEYES_USERNAME) { $env:SIXEYES_USERNAME } else { 'adm@adm.com' }),
-  [string]$Password       = $env:SIXEYES_PASSWORD,
+  # Credentials are read from the repo .env (ADMIN_USERNAME / ADMIN_PASSWORD),
+  # or from $env:SIXEYES_USERNAME / $env:SIXEYES_PASSWORD, or you're prompted.
+  # Never hardcoded. -EnvFile overrides the .env location.
+  [string]$EnvFile        = (Join-Path $PSScriptRoot '..\.env'),
+  [string]$Username,
+  [string]$Password,
   [string]$InstallRoot    = 'D:\Games',
   # Host folder that the agent mounts as /app/downloads (this repo's ./downloads):
   [string]$DownloadsHostDir = (Join-Path $PSScriptRoot '..\downloads' | Resolve-Path -ErrorAction SilentlyContinue),
@@ -29,6 +31,36 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# --- load .env into the process environment ---------------------------------
+function Import-DotEnv([string]$Path) {
+  if (-not (Test-Path $Path)) {
+    Write-Warning ".env not found at $Path — relying on existing env / prompt."
+    return
+  }
+  Get-Content $Path | ForEach-Object {
+    $line = $_.Trim()
+    if ($line -and -not $line.StartsWith('#')) {
+      $key, $value = $line -split '=', 2
+      if ($key -and $value) {
+        $key   = $key.Trim()
+        $value = $value.Trim().Trim('"').Trim("'")
+        # Don't clobber a value already set in the real environment (it wins).
+        if (-not [Environment]::GetEnvironmentVariable($key)) {
+          Set-Item -Path "Env:\$key" -Value $value
+        }
+      }
+    }
+  }
+  Write-Host ".env loaded from $Path" -ForegroundColor DarkGray
+}
+
+Import-DotEnv $EnvFile
+
+# Resolve credentials: explicit param > SIXEYES_* > ADMIN_* (.env) > prompt.
+if (-not $Username) { $Username = $env:SIXEYES_USERNAME; if (-not $Username) { $Username = $env:ADMIN_USERNAME } }
+if (-not $Password) { $Password = $env:SIXEYES_PASSWORD; if (-not $Password) { $Password = $env:ADMIN_PASSWORD } }
+if (-not $Username) { $Username = 'adm@adm.com' }
 
 # --- container path -> Windows path -----------------------------------------
 function Convert-ToHostPath([string]$p) {
