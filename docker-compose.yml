@@ -34,6 +34,7 @@ services:
       - "9999"
     volumes:
       - ${DOWNLOAD_PATH:-./downloads}:/app/downloads
+      - agent-state:/app/state
       - C:/:/host/C
       - D:/:/host/D
     networks:
@@ -41,6 +42,7 @@ services:
     environment:
       - DOWNLOAD_PATH=/app/downloads
       - HOST_DRIVES=/host/C,/host/D
+      - STATE_DIR=/app/state
     healthcheck:
       # alpine ships busybox wget, not curl; 127.0.0.1 avoids IPv6 ::1 refusal
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9999/python/test || exit 1"]
@@ -115,3 +117,4 @@ networks:
 
 volumes:
   db-data:
+  agent-state:
