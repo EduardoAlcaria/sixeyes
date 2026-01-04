@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import threading
@@ -117,6 +118,79 @@ _torrents: dict[int, dict] = {}
 _handles: dict[object, lt.torrent_handle] = {}
 _hash_by_id: dict[int, object] = {}
 _threads: dict[int, threading.Thread] = {}
+_id_by_handle: dict[object, int] = {}
+
+# --- Durable resume state (survives agent restarts) -------------------------
+# Sidecar JSON {id, magnet, savePath} + libtorrent fast-resume blob per torrent
+# live on a persistent volume so downloads resume instantly after a restart.
+STATE_DIR = os.getenv("STATE_DIR", "/app/state")
+os.makedirs(STATE_DIR, exist_ok=True)
+
+
+def _meta_path(tid: int) -> str:
+    return os.path.join(STATE_DIR, f"{tid}.json")
+
+
+def _resume_path(tid: int) -> str:
+    return os.path.join(STATE_DIR, f"{tid}.resume")
+
+
+def _write_meta(tid: int, magnet: str, save_path: str) -> None:
+    try:
+        with open(_meta_path(tid), "w") as f:
+            json.dump({"id": tid, "magnet": magnet, "savePath": save_path}, f)
+    except OSError as e:
+        print(f"[resume] meta write failed for {tid}: {e}")
+
+
+def _delete_state(tid: int) -> None:
+    for p in (_meta_path(tid), _resume_path(tid)):
+        try:
+            os.remove(p)
+        except OSError:
+            pass
+
+
+def _request_resume_save(handle) -> None:
+    try:
+        handle.save_resume_data(lt.save_resume_flags_t.save_info_dict)
+    except Exception:
+        try:
+            handle.save_resume_data()
+        except Exception:
+            pass
+
+
+def _alert_pump() -> None:
+    """Persist fast-resume blobs as libtorrent emits them."""
+    while True:
+        _session.wait_for_alert(1000)
+        for a in _session.pop_alerts():
+            if type(a).__name__ == "save_resume_data_alert":
+                try:
+                    buf = lt.write_resume_data_buf(a.params)
+                    tid = _id_by_handle.get(a.handle)
+                    if tid is not None:
+                        with open(_resume_path(tid), "wb") as f:
+                            f.write(buf)
+                except Exception as e:
+                    print(f"[resume] blob write failed: {e}")
+
+
+def _resume_saver() -> None:
+    """Periodically snapshot resume data for all live torrents."""
+    while True:
+        time.sleep(30)
+        for handle in list(_id_by_handle.keys()):
+            try:
+                if handle.is_valid() and handle.has_metadata():
+                    _request_resume_save(handle)
+            except Exception:
+                pass
+
+
+threading.Thread(target=_alert_pump, daemon=True).start()
+threading.Thread(target=_resume_saver, daemon=True).start()
 
 
 def add_torrent(torrent_id: int, magnet: str, save_path: str | None = None) -> dict:
@@ -161,12 +235,14 @@ def remove(torrent_id: int) -> None:
         info_hash = _hash_by_id[torrent_id]
         if info_hash in _handles:
             handle = _handles.pop(info_hash)
+            _id_by_handle.pop(handle, None)
             handle.pause()
             _session.remove_torrent(handle)
         del _hash_by_id[torrent_id]
 
     _threads.pop(torrent_id, None)
     _torrents.pop(torrent_id, None)
+    _delete_state(torrent_id)
 
 
 def get_storage_info() -> dict:
@@ -225,11 +301,27 @@ def _download_thread(data: dict) -> None:
     torrent_id = data["id"]
     save_path = data.get("savePath", DEFAULT_SAVE_PATH)
     try:
-        handle = lt.add_magnet_uri(_session, data["magnet"], {
-            "save_path": save_path,
-            "storage_mode": lt.storage_mode_t.storage_mode_sparse,
-        })
+        handle = None
+        resume_file = _resume_path(torrent_id)
+        if os.path.exists(resume_file):
+            # Fast-resume: re-add from saved state, skipping a full re-check.
+            try:
+                with open(resume_file, "rb") as f:
+                    atp = lt.read_resume_data(f.read())
+                atp.save_path = save_path
+                handle = _session.add_torrent(atp)
+                print(f"[resume] fast-resumed torrent {torrent_id}")
+            except Exception as e:
+                print(f"[resume] bad resume blob for {torrent_id}, re-adding from magnet: {e}")
+                handle = None
+        if handle is None:
+            handle = lt.add_magnet_uri(_session, data["magnet"], {
+                "save_path": save_path,
+                "storage_mode": lt.storage_mode_t.storage_mode_sparse,
+            })
         handle.auto_managed(False)
+        _id_by_handle[handle] = torrent_id
+        _write_meta(torrent_id, data["magnet"], save_path)
         data["status"] = TorrentStatus.DOWNLOADING.value
 
         while not handle.has_metadata():
@@ -288,6 +380,7 @@ def _download_thread(data: dict) -> None:
                 "uploadSpeed": 0.0,
                 "peers": 0,
             })
+            _request_resume_save(handle)  # persist completed state
 
     except Exception as e:
         if torrent_id in _torrents:
@@ -353,3 +446,25 @@ def _format_eta(seconds: float) -> str | None:
     if m:
         return f"{m}m {s}s"
     return f"{s}s"
+
+
+def _resume_persisted() -> None:
+    """On startup, re-add every torrent recorded on the persistent volume."""
+    if not os.path.isdir(STATE_DIR):
+        return
+    for fn in sorted(os.listdir(STATE_DIR)):
+        if not fn.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(STATE_DIR, fn)) as f:
+                meta = json.load(f)
+            tid = int(meta["id"])
+            if tid in _torrents:
+                continue
+            add_torrent(tid, meta["magnet"], meta.get("savePath"))
+            print(f"[resume] restored torrent {tid}")
+        except Exception as e:
+            print(f"[resume] failed to restore {fn}: {e}")
+
+
+_resume_persisted()
