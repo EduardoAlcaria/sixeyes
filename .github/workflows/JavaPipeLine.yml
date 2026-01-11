@@ -146,9 +146,9 @@ jobs:
             --memory=1Gi \
             --cpu=1 \
             --min-instances=0 \
-            --max-instances=10 \
+            --max-instances=2 \
             --port=9090 \
-            --set-env-vars="SPRING_PROFILES_ACTIVE=prod,PYTHON_SERVICE_URL=https://71cb66e3e96a.ngrok-free.app" \
+            --set-env-vars="SPRING_PROFILES_ACTIVE=prod,PYTHON_SERVICE_URL=https://7581f5191db9.ngrok-free.app" \
             --timeout=300
 
       - name: Get Service URL
