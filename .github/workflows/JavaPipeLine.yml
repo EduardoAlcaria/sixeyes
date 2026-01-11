@@ -151,6 +151,7 @@ jobs:
             --set-env-vars="SPRING_PROFILES_ACTIVE=prod,PYTHON_SERVICE_URL=https://7581f5191db9.ngrok-free.app" \
             --timeout=300
 
+            
       - name: Get Service URL
         id: deploy
         run: |
