@@ -148,7 +148,7 @@ jobs:
             --min-instances=0 \
             --max-instances=2 \
             --port=9090 \
-            --set-env-vars="SPRING_PROFILES_ACTIVE=prod,PYTHON_SERVICE_URL=https://7581f5191db9.ngrok-free.app" \
+            --set-env-vars="SPRING_PROFILES_ACTIVE=prod,PYTHON_SERVICE_URL=https://18db88d7f322.ngrok-free.app" \
             --timeout=300
 
             
