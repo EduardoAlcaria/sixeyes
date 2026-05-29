@@ -571,100 +571,34 @@ git push
 
 ---
 
-## Task 7: Replace GCP CI/CD with build+test-only workflows
+## Task 7: Ditch GCP CI — delete the workflow files (no replacement now)
+
+> **Scope change (user):** Do not build a replacement pipeline right now. Just remove the GCP/Cloud Run workflows so nothing tries to deploy to GCP. A new CI can be added later.
 
 **Files:**
-- Modify: `.github/workflows/JavaPipeLine.yml`
-- Modify: `.github/workflows/frontend-ci-cd-pipeline.yml`
+- Delete: `.github/workflows/JavaPipeLine.yml`
+- Delete: `.github/workflows/frontend-ci-cd-pipeline.yml`
 
-- [ ] **Step 1: Rewrite Java workflow (test only)**
-
-Replace the whole file with:
-
-```yaml
-name: Backend Java CI
-
-on:
-  push:
-    branches: [dev, master]
-    paths: ['java/controller/**', '.github/workflows/JavaPipeLine.yml']
-  pull_request:
-    branches: [dev, master]
-    paths: ['java/controller/**']
-
-jobs:
-  test:
-    name: Build & Test
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: java/controller
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
-      - name: Build & test
-        run: mvn -B clean test
-      - name: Publish test results
-        if: github.event_name == 'pull_request'
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: java/controller/target/surefire-reports/*.xml
-          comment_mode: always
-```
-
-- [ ] **Step 2: Rewrite frontend workflow (build only)**
-
-Replace the whole file with:
-
-```yaml
-name: Frontend CI
-
-on:
-  push:
-    branches: [dev, master]
-    paths: ['js/torrent-dashboard/**', '.github/workflows/frontend-ci-cd-pipeline.yml']
-  pull_request:
-    branches: [dev, master]
-    paths: ['js/torrent-dashboard/**']
-
-jobs:
-  build:
-    name: Lint & Build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: js/torrent-dashboard
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: js/torrent-dashboard/package-lock.json
-      - run: npm ci
-      - run: npm run lint || echo "lint not configured"
-      - run: npm run build
-      - name: Verify dist
-        run: test -d dist && echo "build ok"
-```
-
-- [ ] **Step 3: Validate YAML**
-
-Run: `python -c "import yaml,sys; [yaml.safe_load(open(f)) for f in ['.github/workflows/JavaPipeLine.yml','.github/workflows/frontend-ci-cd-pipeline.yml']]; print('yaml ok')"`
-Expected: `yaml ok`.
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 1: Delete both GCP workflows**
 
 ```bash
-git add .github/workflows/JavaPipeLine.yml
-git commit -m "ci: java workflow build+test only, drop Cloud Run deploy"
+git rm .github/workflows/JavaPipeLine.yml
+git rm .github/workflows/frontend-ci-cd-pipeline.yml
+```
+
+- [ ] **Step 2: Confirm no other workflow references GCP**
+
+Run: `ls .github/workflows/ 2>/dev/null; grep -rin "gcloud\|cloud run\|gcp" .github/ 2>/dev/null`
+Expected: no GCP references remain (directory may be empty).
+
+- [ ] **Step 3: Commit (one file per commit, push each)**
+
+```bash
+git rm .github/workflows/JavaPipeLine.yml
+git commit -m "ci: remove GCP Cloud Run Java pipeline"
 git push
-git add .github/workflows/frontend-ci-cd-pipeline.yml
-git commit -m "ci: frontend workflow build only, drop Cloud Run deploy"
+git rm .github/workflows/frontend-ci-cd-pipeline.yml
+git commit -m "ci: remove GCP Cloud Run frontend pipeline"
 git push
 ```
 
