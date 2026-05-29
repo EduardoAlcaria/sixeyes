@@ -1,18 +1,34 @@
-HELP.md
-target/
-D:\programming_WINDOWS_ONLY\projects\sixeyes\java\controller\.mvn\wrapper
+.env
+downloads/
+.claude/
+
+**/target/
+**/.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-
-### IntelliJ IDEA ###
-D:\programming_WINDOWS_ONLY\projects\sixeyes\java\controller\.idea
+.idea/
 *.iws
 *.iml
 *.ipr
-D:\programming_WINDOWS_ONLY\projects\sixeyes\java\controller\target
-
-
-
-### VS Code ###
 .vscode/
+.project
+.classpath
+.settings/
+.springBeans
+.sts4-cache
+.apt_generated
+.factorypath
+
+**/node_modules/
+**/dist/
+
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+.venv/
+*.egg-info/
+.pytest_cache/
+
+.DS_Store
+Thumbs.db
