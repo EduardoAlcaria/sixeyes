@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: sixeyes
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+server:
+  port: 9090
+  servlet:
+    context-path: /api/v1
+
+python:
+  service:
+    url: ${PYTHON_SERVICE_URL:http://localhost:9999}
+
+sync:
+  interval-ms: 3000
+
+jwt:
+  secret: ${JWT_SECRET:c2l4ZXllcy1sb2NhbC1kZXZlbG9wbWVudC1zZWNyZXQtZG8tbm90LXVzZS1pbi1wcm9kdWN0aW9u}
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
+admin:
+  username: ${ADMIN_USERNAME:admin}
+  password: ${ADMIN_PASSWORD:admin}
+
+settings:
+  default-download-path: ${DEFAULT_DOWNLOAD_PATH:/app/downloads}
+  min-free-gb: 0.5
+
+logging:
+  level:
+    com.sixeyes: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
