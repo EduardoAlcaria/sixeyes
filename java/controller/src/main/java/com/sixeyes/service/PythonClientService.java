@@ -1,0 +1,168 @@
+package com.sixeyes.service;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.sixeyes.dto.response.DiskInfo;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class PythonClientService {
+
+    private final RestTemplate restTemplate;
+
+    @Value("${python.service.url}")
+    private String pythonUrl;
+
+    private record StartDownloadBody(long id, String magnet, @JsonProperty("downloadPath") String downloadPath
+    ) {}
+
+    private record TorrentIdBody(long id, String magnet) {}
+
+    public void startDownload(Long id, String magnet, String downloadPath) {
+        exchange("/python/add", HttpMethod.POST, new StartDownloadBody(id, magnet, downloadPath));
+    }
+
+    public List<Map<String, Object>> fetchAllTorrentData() {
+        try {
+
+            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+                    url("/python/get"), HttpMethod.GET, jsonEntity(null),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            List<Map<String, Object>> body = response.getBody();
+
+            if (body == null){
+                return Collections.emptyList();
+            }
+
+            return body;
+
+        } catch (RestClientException e) {
+            throw engineException("GET /python/get", e);
+        }
+    }
+
+    public void pause(Long id, String magnet) {
+        exchange("/python/pause", HttpMethod.PUT, new TorrentIdBody(id, magnet));
+    }
+
+    public void resume(Long id, String magnet) {
+        exchange("/python/resume", HttpMethod.PUT, new TorrentIdBody(id, magnet));
+    }
+
+    public void remove(Long id, String magnet) {
+        exchange("/python/remove", HttpMethod.DELETE, new TorrentIdBody(id, magnet));
+    }
+
+    public Map<String, Object> fetchStorageInfo() {
+        try {
+
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url("/python/systemInfo/getStorageInfo"), HttpMethod.GET, jsonEntity(null),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            Map<String, Object> body = response.getBody();
+
+            if (body == null){
+                return Map.of("Used", 0L, "Available", 0L);
+            }
+
+            return body;
+
+        } catch (RestClientException e) {
+            throw engineException("GET /python/systemInfo/getStorageInfo", e);
+        }
+    }
+
+    public List<DiskInfo> fetchDisks() {
+        try {
+
+            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+                    url("/python/systemInfo/getDisks"), HttpMethod.GET, jsonEntity(null),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            List<Map<String, Object>> body = response.getBody();
+
+            if (body == null){
+                return Collections.emptyList();
+            }
+
+            return body.stream()
+                    .map(d -> new DiskInfo(
+                        str(d.get("path")),
+                        str(d.get("device")),
+                        toDouble(d.get("total")),
+                        toDouble(d.get("used")),
+                        toDouble(d.get("available"))
+            )).toList();
+
+        } catch (RestClientException e) {
+            throw engineException("GET /python/systemInfo/getDisks", e);
+        }
+    }
+
+    private <T> void exchange(String path, HttpMethod method, T body) {
+        try {
+
+            restTemplate.exchange(url(path), method, jsonEntity(body), Void.class);
+
+        } catch (RestClientException e) {
+            throw engineException(method + " " + path, e);
+        }
+    }
+
+    private String url(String path) {
+        return pythonUrl + path;
+    }
+
+    private <T> HttpEntity<T> jsonEntity(T body) {
+
+        HttpHeaders headers = new HttpHeaders();
+
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+        return new HttpEntity<>(body, headers);
+    }
+
+    private RuntimeException engineException(String operation, RestClientException cause) {
+
+        log.error("Python engine call failed [{}]: {}", operation, cause.getMessage());
+        return new RuntimeException("Python engine unavailable during " + operation, cause);
+    }
+
+    private static String str(Object o) {
+        if (o == null){
+            return "";
+        }
+
+        return o.toString();
+    }
+
+    private static double toDouble(Object o) {
+        if (o == null){
+            return 0.0;
+        }
+
+        try {
+            return Double.parseDouble(o.toString());
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
+    }
+}
