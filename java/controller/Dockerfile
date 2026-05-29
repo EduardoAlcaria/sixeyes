@@ -1,16 +1,12 @@
-FROM eclipse-temurin:24
+FROM maven:3.9-eclipse-temurin-21 AS builder
+WORKDIR /build
+COPY pom.xml .
+RUN mvn dependency:go-offline -q
+COPY src ./src
+RUN mvn package -DskipTests -q
 
-
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-
-
-COPY ./target/controller-0.0.1-SNAPSHOT.jar .
-
-
-ENV PORT=9090
-
-
+COPY --from=builder /build/target/sixeyes-1.0.0.jar app.jar
 EXPOSE 9090
-
-
-ENTRYPOINT ["java", "-jar", "controller-0.0.1-SNAPSHOT.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
