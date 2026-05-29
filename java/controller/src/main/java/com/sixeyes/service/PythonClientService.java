@@ -2,6 +2,10 @@ package com.sixeyes.service;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.sixeyes.dto.response.DiskInfo;
+import com.sixeyes.exception.InvalidMagnetException;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,6 +36,38 @@ public class PythonClientService {
 
     public void startDownload(Long id, String magnet, String downloadPath) {
         exchange("/python/add", HttpMethod.POST, new StartDownloadBody(id, magnet, downloadPath));
+    }
+
+    public String magnetFromFile(byte[] torrentBytes, String filename) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        ByteArrayResource resource = new ByteArrayResource(torrentBytes) {
+            @Override
+            public String getFilename() {
+                return filename;
+            }
+        };
+
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("file", resource);
+
+        HttpEntity<MultiValueMap<String, Object>> entity = new HttpEntity<>(body, headers);
+
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resp = restTemplate.postForObject(
+                    url("/python/parseMagnet"), entity, Map.class);
+
+            if (resp == null || resp.get("magnet") == null) {
+                throw new InvalidMagnetException("(file) " + filename);
+            }
+
+            return resp.get("magnet").toString();
+
+        } catch (RestClientException e) {
+            throw engineException("POST /python/parseMagnet", e);
+        }
     }
 
     public List<Map<String, Object>> fetchAllTorrentData() {
