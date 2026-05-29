@@ -1,0 +1,134 @@
+package com.sixeyes.service;
+
+import com.sixeyes.model.Torrent;
+import com.sixeyes.model.TorrentStatus;
+import com.sixeyes.repo.TorrentRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class TorrentSyncService {
+
+    private final TorrentRepository torrentRepository;
+    private final PythonClientService pythonClient;
+
+    @Scheduled(fixedDelayString = "${sync.interval-ms:3000}")
+    @Transactional
+    public void syncFromEngine() {
+        List<Torrent> active = torrentRepository.findByStatusIn(
+                List.of(TorrentStatus.DOWNLOADING, TorrentStatus.SEEDING)
+        );
+        if (active.isEmpty()) return;
+
+        try {
+            Map<Long, Torrent> byId = active.stream()
+                    .collect(Collectors.toMap(Torrent::getId, t -> t));
+
+            pythonClient.fetchAllTorrentData().forEach(data -> {
+                if (data.get("id") instanceof Number n) {
+                    Torrent torrent = byId.get(n.longValue());
+                    if (torrent != null) applyTelemetry(torrent, data);
+                }
+            });
+
+            torrentRepository.saveAll(active);
+            log.debug("Synced {} active torrent(s) from engine", active.size());
+
+        } catch (Exception e) {
+            log.warn("Engine sync failed — will retry on next cycle: {}", e.getMessage());
+        }
+    }
+
+    private void applyTelemetry(Torrent torrent, Map<String, Object> data) {
+
+        data.forEach((key, value) -> {
+            if (value == null) return;
+
+            switch (key) {
+                case "title" -> torrent.setTitle(asString(value));
+                case "infoHash" -> torrent.setInfoHash(asString(value));
+                case "size" -> torrent.setSize(asString(value));
+                case "eta" -> torrent.setEta(asString(value));
+
+                case "peers" -> torrent.setPeers(asInt(value));
+                case "progress" -> torrent.setProgress(asDouble(value));
+
+                case "downloadSpeed" ->
+                        torrent.setDownloadSpeed(TorrentService.formatSpeed(asString(value)));
+
+                case "uploadSpeed" ->
+                        torrent.setUploadSpeed(TorrentService.formatSpeed(asString(value)));
+
+                case "status" ->
+                        handleStatusUpdate(torrent, asString(value));
+            }
+        });
+
+
+    }
+
+//        if (data.get("progress") instanceof Number n) torrent.setProgress(n.doubleValue());
+//
+//        if (data.get("status") instanceof String s) {
+//            TorrentStatus engineStatus = TorrentStatus.fromValue(s);
+//            if (engineStatus == TorrentStatus.SEEDING && torrent.getStatus() == TorrentStatus.DOWNLOADING) {
+//
+//                torrent.setStatus(TorrentStatus.SEEDING);
+//                torrent.setProgress(100.0);
+//                torrent.setDownloadSpeed("0.00 MB/s");
+//                torrent.setEta(null);
+//
+//            } else if (engineStatus == TorrentStatus.ERROR && torrent.getStatus() == TorrentStatus.DOWNLOADING) {
+//                torrent.setStatus(TorrentStatus.ERROR);
+//            }
+//        }
+//    }
+
+    private void handleStatusUpdate(Torrent torrent, String rawStatus) {
+        TorrentStatus engineStatus = TorrentStatus.fromValue(rawStatus);
+
+        switch (engineStatus) {
+
+            case SEEDING -> {
+                if (torrent.getStatus() == TorrentStatus.DOWNLOADING) {
+                    torrent.setStatus(TorrentStatus.SEEDING);
+                    torrent.setProgress(100.0);
+                    torrent.setDownloadSpeed("0.00 MB/s");
+                    torrent.setEta(null);
+                }
+            }
+
+            case ERROR -> {
+                if (torrent.getStatus() == TorrentStatus.DOWNLOADING) {
+                    torrent.setStatus(TorrentStatus.ERROR);
+                }
+            }
+
+            default -> {
+                // ignore other states for now
+            }
+        }
+    }
+
+    private String asString(Object o) {
+        return o instanceof String s ? s : null;
+    }
+
+    private int asInt(Object o) {
+        return o instanceof Number n ? n.intValue() : 0;
+    }
+
+    private double asDouble(Object o) {
+        return o instanceof Number n ? n.doubleValue() : 0.0;
+    }
+
+}
