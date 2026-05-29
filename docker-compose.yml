@@ -1,67 +1,111 @@
-version: '3.8'
-
 services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: sixeyes-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - sixeyes-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ngrok-db:
+    image: ngrok/ngrok:latest
+    container_name: sixeyes-ngrok-db
+    restart: unless-stopped
+    command: tcp db:5432
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    ports:
+      - "4040:4040"
+    networks:
+      - sixeyes-net
+    depends_on:
+      db:
+        condition: service_healthy
+
   python-backend:
-    build: 
+    build:
       context: ./python
       dockerfile: Dockerfile
-    container_name: torrent-python
+    container_name: sixeyes-python
+    restart: unless-stopped
     ports:
       - "9999:9999"
     volumes:
-      - ./downloads:/app/downloads
+      - ${DOWNLOAD_PATH:-./downloads}:/app/downloads
+      - C:/:/host/C
+      - D:/:/host/D
     networks:
-      - torrent-network
+      - sixeyes-net
     environment:
-      - FLASK_ENV=production
+      - DOWNLOAD_PATH=/app/downloads
+      - HOST_DRIVES=/host/C,/host/D
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9999/python/getTorrentStats"]
+      test: ["CMD", "curl", "-f", "http://localhost:9999/python/test"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 15s
 
   java-backend:
-    build: 
+    build:
       context: ./java/controller
       dockerfile: Dockerfile
-    container_name: torrent-java
+    container_name: sixeyes-java
+    restart: unless-stopped
     ports:
       - "9090:9090"
     depends_on:
-      - python-backend
+      python-backend:
+        condition: service_started
+      db:
+        condition: service_healthy
     networks:
-      - torrent-network
+      - sixeyes-net
     environment:
-      - SPRING_PROFILES_ACTIVE=production
-      - PYTHON_SERVICE_URL=http://python-backend:9999
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - PYTHON_SERVICE_URL=http://sixeyes-python:9999
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - DB_URL=jdbc:postgresql://db:5432/${DB_NAME}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9090/spring/torrents/get"]
+      test: ["CMD", "curl", "-f", "http://localhost:9090/api/torrents/test"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
 
-  react-frontend:
-    build: 
-      context: ./js/
+  frontend:
+    build:
+      context: ./js
       dockerfile: Dockerfile
-    container_name: torrent-frontend
+    container_name: sixeyes-frontend
+    restart: unless-stopped
     ports:
-      - "3000:5173"
+      - "4000:80"
     depends_on:
       - java-backend
-      - python-backend
     networks:
-      - torrent-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5173"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - sixeyes-net
 
 networks:
-  torrent-network:
+  sixeyes-net:
     driver: bridge
 
 volumes:
-  downloads:
-    driver: local
+  db-data:
