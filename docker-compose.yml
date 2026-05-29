@@ -20,29 +20,16 @@ services:
       timeout: 5s
       retries: 5
 
-  ngrok-db:
-    image: ngrok/ngrok:latest
-    container_name: sixeyes-ngrok-db
-    restart: unless-stopped
-    command: tcp db:5432
-    environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-    ports:
-      - "4040:4040"
-    networks:
-      - sixeyes-net
-    depends_on:
-      db:
-        condition: service_healthy
-
   python-backend:
     build:
       context: ./python
       dockerfile: Dockerfile
     container_name: sixeyes-python
     restart: unless-stopped
-    ports:
-      - "9999:9999"
+    # No host port published — the Python agent is reachable only by the Java
+    # middleware over the internal docker network (sixeyes-net).
+    expose:
+      - "9999"
     volumes:
       - ${DOWNLOAD_PATH:-./downloads}:/app/downloads
       - C:/:/host/C
@@ -84,7 +71,7 @@ services:
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9090/api/torrents/test"]
+      test: ["CMD", "curl", "-f", "http://localhost:9090/api/v1/torrents/test"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -100,6 +87,18 @@ services:
       - "4000:80"
     depends_on:
       - java-backend
+    networks:
+      - sixeyes-net
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: sixeyes-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+    depends_on:
+      - frontend
     networks:
       - sixeyes-net
 
