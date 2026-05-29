@@ -1,0 +1,94 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { torrentApi } from '../services/api'
+import type { CompletedTorrent, Torrent } from '../types'
+
+const POLL_MS = 5_000
+
+export function useTorrents() {
+  const [torrents, setTorrents] = useState<Torrent[]>([])
+  const [completed, setCompleted] = useState<CompletedTorrent[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const showError = useCallback((msg: string) => {
+    setError(msg)
+    if (errorTimer.current) clearTimeout(errorTimer.current)
+    errorTimer.current = setTimeout(() => setError(null), 5_000)
+  }, [])
+
+  const fetchTorrents = useCallback(async () => {
+    try {
+      const data = await torrentApi.getAll()
+      setTorrents(data)
+    } catch (e) {
+      showError((e as Error).message)
+    }
+  }, [showError])
+
+  const fetchCompleted = useCallback(async () => {
+    try {
+      setCompleted(await torrentApi.getCompleted())
+    } catch {
+      // non-critical
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchTorrents()
+    fetchCompleted()
+    const id = setInterval(() => { fetchTorrents(); fetchCompleted() }, POLL_MS)
+    return () => clearInterval(id)
+  }, [fetchTorrents, fetchCompleted])
+
+  const addTorrent = useCallback(async (magnet: string) => {
+    setLoading(true)
+    try {
+      await torrentApi.add(magnet)
+      await fetchTorrents()
+      setError(null)
+    } catch (e) {
+      showError((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }, [fetchTorrents, showError])
+
+  const pauseTorrent = useCallback(async (id: number) => {
+    try {
+      const updated = await torrentApi.pause(id)
+      setTorrents(prev => prev.map(t => (t.id === id ? updated : t)))
+    } catch (e) {
+      showError((e as Error).message)
+    }
+  }, [showError])
+
+  const resumeTorrent = useCallback(async (id: number) => {
+    try {
+      const updated = await torrentApi.resume(id)
+      setTorrents(prev => prev.map(t => (t.id === id ? updated : t)))
+    } catch (e) {
+      showError((e as Error).message)
+    }
+  }, [showError])
+
+  const removeTorrent = useCallback(async (id: number) => {
+    try {
+      await torrentApi.remove(id)
+      setTorrents(prev => prev.filter(t => t.id !== id))
+    } catch (e) {
+      showError((e as Error).message)
+    }
+  }, [showError])
+
+  return {
+    torrents,
+    completed,
+    loading,
+    error,
+    addTorrent,
+    pauseTorrent,
+    resumeTorrent,
+    removeTorrent,
+  }
+}
