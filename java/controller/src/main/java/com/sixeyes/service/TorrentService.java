@@ -50,6 +50,11 @@ public class TorrentService {
         return TorrentResponse.from(torrent);
     }
 
+    public TorrentResponse addTorrentFromFile(byte[] torrentBytes, String filename) {
+        String magnet = pythonClient.magnetFromFile(torrentBytes, filename);
+        return addTorrent(magnet);
+    }
+
     @Transactional(readOnly = true)
     public List<TorrentResponse> getAllTorrents() {
         return torrentRepository.findAll().stream()
