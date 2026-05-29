@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,12 @@ public class TorrentController {
     @PostMapping("/add")
     public ResponseEntity<TorrentResponse> add(@Valid @RequestBody AddTorrentRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(torrentService.addTorrent(request.magnet()));
+    }
+
+    @PostMapping(value = "/addFile", consumes = "multipart/form-data")
+    public ResponseEntity<TorrentResponse> addFile(@RequestParam("file") MultipartFile file) throws java.io.IOException {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(torrentService.addTorrentFromFile(file.getBytes(), file.getOriginalFilename()));
     }
 
     @GetMapping("/get")
