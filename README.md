@@ -1,7 +1,7 @@
 # SixEyes 🚀
-### A hybrid torrent manager built on Cloud, Java, Python and React
+### A stable prototype uniting Cloud, Java (Spring Boot), Python and React in a remote torrent management system
 
-Manage your torrents remotely from anywhere — no VPN, no port forwarding, no headaches. Cloud frontend and middleware talk to a local Python agent running LibTorrent on your machine, tunneled securely through ngrok.
+A complete system to manage torrents remotely using modern hybrid architecture. Control your torrent client from anywhere — no VPN, no port forwarding, no headaches.
 
 **Simple idea. Complex engineering.**
 
@@ -9,39 +9,33 @@ Manage your torrents remotely from anywhere — no VPN, no port forwarding, no h
 
 ## 🧱 Hybrid Architecture
 
-SixEyes is built on three complementary pillars:
+SixEyes is built on three complementary pillars that work in perfect harmony:
 
 ### ⚙️ **Middleware Layer**
 **Spring Boot** running on **Google Cloud Run**
-- JWT-authenticated RESTful API
-- Orchestrates all communication with the local Python agent
-- Processes and formats raw torrent data (speeds, progress, status)
-- Persists torrent state to PostgreSQL (via ngrok TCP tunnel)
+- RESTful API orchestration
+- **Processes and transforms Python agent responses**
+- Business logic and state management
+- **Data formatting and aggregation**
 - Auto-scaling serverless deployment
+- Health checks and monitoring
 
 ### 🎨 **Frontend Layer**
-**React + TypeScript** also on **Cloud Run**
-- JWT login with session management
-- Real-time torrent dashboard with 5-second polling
-- Live download/upload speed charts
-- Host disk monitoring (Windows drives via bind mounts)
-- Completed downloads tracking
-- Settings page (download path per torrent)
+**React** also on **Cloud Run**
+- Real-time dashboard with live updates
+- Torrent status visualization
+- System analytics and charts
+- Responsive, modern UI with Tailwind CSS
 
 ### 🐍 **Local Agent**
-**Python + FastAPI** executing directly on user's machine
+**Python** executing directly on user's machine
 - LibTorrent protocol implementation
-- Exposed to the cloud via **ngrok HTTP tunnel**
-- Real-time torrent operations (add, pause, resume, remove)
-- Host filesystem and disk usage reporting
+- Secure tunnel via **ngrok**
+- Real-time command execution
+- Raw torrent data collection
+- Works without fixed IP or port forwarding
 
-### 💾 **Local Database**
-**PostgreSQL 16** running in Docker on user's machine
-- Exposed to Cloud Run via **ngrok TCP tunnel**
-- Torrents persist across container restarts
-- Auto-created schema via Hibernate on startup
-
-**The bridge:** Everything local is accessed through ngrok tunnels. Spring middleware is the intelligent intermediary — it processes raw data from Python and serves clean, formatted responses to React. PostgreSQL lives alongside the Python agent, keeping torrent state durable.
+**The bridge:** Cloud ↔ Local happens through a secure ngrok tunnel, enabling real-time communication even without static IP. The Spring middleware acts as an intelligent intermediary, processing raw data from Python and serving clean, formatted responses to React.
 
 ---
 
@@ -49,143 +43,173 @@ SixEyes is built on three complementary pillars:
 
 | Layer | Technology |
 |-------|------------|
-| **Frontend** | React 18.3, TypeScript 5.5, Vite 7.1, Tailwind CSS 3.4, Recharts 2.12 |
-| **Backend** | Java 21, Spring Boot 3.4.1, Spring Security 6, JJWT 0.12.6, Maven |
-| **Agent** | Python 3.9+, FastAPI, Uvicorn, LibTorrent, psutil |
-| **Database** | PostgreSQL 16 (prod), H2 (local dev) |
-| **Cloud** | Google Cloud Run, Artifact Registry (southamerica-east1) |
-| **DevOps** | GitHub Actions, Docker, Docker Compose, JUnit 5 |
-| **Tunnel** | ngrok (HTTP for Python agent, TCP for PostgreSQL) |
+| **Frontend** | React 18.3, Vite 7.1, Tailwind CSS 3.4, Recharts 2.8 |
+| **Backend** | Java 24, Spring Boot 3.5.5, Spring Security, Maven |
+| **Agent** | Python 3.9+, Flask, LibTorrent, Flask-CORS |
+| **Cloud** | Google Cloud Run, Artifact Registry |
+| **DevOps** | GitHub Actions, Docker, JUnit 5 |
+| **Protocols** | REST API, HTTP/HTTPS, BitTorrent |
+| **Tunnel** | ngrok (secure local-to-cloud communication) |
 
 ---
 
-## 🔐 Security
+## 💥 GitHub Actions: Automation That Matters
 
-- JWT authentication — `POST /auth/login` returns a Bearer token, all other endpoints require it
-- Spring Security 6 filter chain with `JwtFilter` on every request
-- HMAC-SHA256 token signing with a configurable secret
-- CORS configured via `CorsConfigurationSource` bean (supports Cloud Run origins)
-- No credentials in codebase — all secrets via environment variables / GitHub Secrets
+Implemented CI/CD pipelines that:
 
----
+✅ **Build** Docker images automatically  
+✅ **Run** unit and integration tests  
+✅ **Analyze** code quality  
+✅ **Publish** versions to Cloud Run  
 
-## 💥 CI/CD Pipelines
-
-**Push to `dev` → tests → merge to `main` → Docker build → deploy to Cloud Run**
+**Push → Build → Deploy.** That simple.
 
 ### Backend Pipeline
 ```
-1. JUnit tests (TorrentTest, SixEyesApplicationTests)
-2. Merge dev → main
+1. Test (JUnit + Mockito)
+2. Merge dev → master
 3. Maven package + Docker build
 4. Push to Artifact Registry
-5. Deploy to Cloud Run (0–10 instances, port 9090)
-6. Health check: GET /api/torrents/test
+5. Deploy to Cloud Run (auto-scaling 0-10 instances)
+6. Health check validation
 ```
 
 ### Frontend Pipeline
 ```
-1. npm ci + TypeScript build (VITE_API_URL baked in at build time)
-2. ESLint + bundle size analysis
-3. Merge dev → main
-4. Docker multi-stage build (Node → nginx)
-5. Deploy to Cloud Run (0–5 instances, port 80)
-6. Health check: GET /
+1. npm build + ESLint
+2. Bundle size analysis
+3. Docker multi-stage build
+4. Deploy to Cloud Run (auto-scaling 0-5 instances)
+5. CORS configuration sync
 ```
 
 ---
 
-## ⚡ End-to-End Flow
+## ⚡ Real-Time End-to-End Flow
+
+The system works seamlessly with intelligent data processing at each layer:
 
 ```
-React UI → Spring Middleware → Python Agent → LibTorrent
-   ↑              ↓                  ↓
-   │        [PROCESSES &        [RAW DATA:
-   │         TRANSFORMS]         speed, peers,
-   │              ↓              progress, etc]
-   │        [FORMATTED                ↓
-   │         RESPONSE]               ↓
-   └─────────────────────────────────┘
+React UI → Spring Backend → Python Agent → LibTorrent
+   ↑            ↓                   ↓
+   │      [PROCESSES &         [RAW DATA:
+   │       TRANSFORMS]          speed, peers,
+   │            ↓               progress, etc]
+   │      [FORMATTED             ↓
+   │       RESPONSE]             ↓
+   └────────────────────────────┘
 ```
 
-1. **React** sends request with JWT Bearer token
-2. **Spring** validates token, forwards command to Python via ngrok HTTP
-3. **Python** executes LibTorrent operation, returns raw data
-4. **Spring** processes the response — formats speeds, maps status enums, persists to PostgreSQL
-5. **React** receives clean JSON and updates UI
+**Complete Flow:**
+1. **Frontend sends** request (add torrent, pause, get status)
+2. **Middleware receives** and validates the request
+3. **Middleware forwards** command to Python agent via ngrok
+4. **Agent executes** torrent operations using LibTorrent
+5. **Agent returns** raw data (speeds, peers, file info)
+6. **Middleware processes** the response:
+   - Formats speeds (bytes → MB/s)
+   - Calculates progress percentages
+   - Aggregates system metrics
+   - Transforms enums (Python Status → Java TorrentStatus)
+   - Adds timestamps and metadata
+7. **Middleware sends** clean, formatted JSON to React
+8. **React updates** UI with processed data
 
-### Data Transformation Example
+### Example Data Transformation
 
-**Python Agent returns:**
+**Python Agent Response:**
 ```json
-{ "downloadSpeed": 5.18, "progress": 75.23, "status": "downloading" }
+{
+  "downloadSpeed": 5432100,  // bytes/s
+  "uploadSpeed": 1234567,
+  "progress": 0.7523,
+  "status": "downloading"
+}
 ```
 
-**Spring Middleware returns to React:**
+**Spring Middleware Processes and Returns:**
 ```json
-{ "id": 1, "downloadSpeed": "5.18 MB/s", "progress": 75.23, "status": "Downloading", "updatedAt": "2025-01-15T10:30:45" }
+{
+  "id": 1,
+  "downloadSpeed": "5.18 MB/s",
+  "uploadSpeed": "1.18 MB/s", 
+  "progress": 75.23,
+  "status": "Downloading",
+  "updatedAt": "2025-01-15T10:30:45"
+}
 ```
+
+All in real-time with 5-second polling intervals for live monitoring.
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Key Features
 
-### Prerequisites
-- Docker Desktop (with file sharing enabled for C:\ and D:\)
-- ngrok account — get your authtoken at [ngrok.com](https://ngrok.com)
+### ✅ **Implemented**
+- Magnet link support (add torrents instantly)
+- Pause/Resume/Remove controls with state persistence
+- Real-time speed graphs (download/upload)
+- **Intelligent data processing layer** (formatting, aggregation, validation)
+- Storage monitoring and analytics
+- Completed downloads tracking
+- Peer connection statistics
+- **System health metrics aggregation**
+- Auto-scaling cloud deployment
+- Automated CI/CD pipelines
+- Secure tunnel communication (ngrok)
 
-### 1. Clone and configure
+### 🔧 **Planned Improvements**
+- More robust security (JWT authentication)
+- New features (scheduling, priorities)
+- Refined interface (themes, customization)
+- Cleaner codebase (refactoring)
+- Agent optimizations (performance)
+- WebSocket integration (replace polling)
+- **Enhanced middleware caching** (reduce agent calls)
+
+---
+
+## 🎯 What SixEyes Proves
+
+🔹 **Hybrid architectures are efficient** — Cloud + Local best of both worlds  
+🔹 **Python, Java and React form a powerful ecosystem** — Each excels at its role  
+🔹 **Middleware processing is crucial** — Clean separation of concerns  
+🔹 **Cloud Run + GitHub Actions simplify deployments** — Push to production in minutes  
+🔹 **Automation accelerates even prototypes** — CI/CD from day one  
+🔹 **You can build remote systems without expensive infrastructure** — Serverless FTW  
+
+---
+
+
+## 🛠️ Quick Start
+
+### Local Development with Docker Compose
 ```bash
-git clone https://github.com/eduardoalcaria/sixeyes
+git clone https://github.com/yourusername/sixeyes
 cd sixeyes
-cp .env.example .env
+docker-compose up
 ```
 
-Edit `.env` with your values:
-```env
-SPRING_PROFILES_ACTIVE=dev
-DB_NAME=sixeyesdb
-DB_USERNAME=sixeyes
-DB_PASSWORD=yourpassword
-JWT_SECRET=your_base64_secret
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=yourpassword
-DOWNLOAD_PATH=./downloads
-NGROK_AUTHTOKEN=your_ngrok_token
-```
+Access:
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:9090`
+- Python Agent: `http://localhost:9999`
 
-### 2. Start everything
+### Manual Setup
 ```bash
-docker compose up
+# Backend
+cd java/controller
+mvn spring-boot:run
+
+# Python Agent
+cd python
+pip install -r requirements.txt
+python downloader.py
+
+# Frontend
+cd js/torrent-dashboard
+npm install && npm run dev
 ```
-
-This starts: PostgreSQL → ngrok TCP tunnel (port 5432) → Python agent → Java middleware → React frontend
-
-### 3. Access
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:4000 |
-| Java API | http://localhost:9090 |
-| Python Agent | http://localhost:9999 |
-| ngrok DB tunnel inspector | http://localhost:4040 |
-
-### 4. Configure Cloud Run (production)
-After `docker compose up`, open http://localhost:4040 to get the ngrok TCP URL for your database, then set these GitHub Secrets:
-
-| Secret | Description |
-|--------|-------------|
-| `GCP_PROJECT_ID` | Your GCP project ID |
-| `GCP_SA_KEY` | GCP service account JSON |
-| `PYTHON_SERVICE_URL` | Your ngrok HTTP URL for Python agent |
-| `JWT_SECRET` | HMAC-SHA256 secret (base64) |
-| `ADMIN_USERNAME` | Admin login username |
-| `ADMIN_PASSWORD` | Admin login password |
-| `DB_URL` | `jdbc:postgresql://<ngrok-host>:<ngrok-port>/sixeyesdb` |
-| `DB_USERNAME` | PostgreSQL username |
-| `DB_PASSWORD` | PostgreSQL password |
-| `BACKEND_API_URL` | Java Cloud Run URL (for frontend build) |
-
-> **Note:** ngrok free tier assigns a new TCP address on every restart. Update `DB_URL` in GitHub Secrets after each `docker compose up`. A paid ngrok plan lets you reserve a static TCP address.
 
 ---
 
@@ -194,42 +218,82 @@ After `docker compose up`, open http://localhost:4040 to get the ngrok TCP URL f
 ```
 ┌─────────────────────────────────────┐
 │         React Dashboard             │
-│    (Cloud Run — 0-5 instances)      │
-│   TypeScript + Vite + Tailwind      │
+│    (Cloud Run - Auto-scaling)       │
+│   Real-time UI + Data Viz           │
 └─────────────┬───────────────────────┘
-              │ REST API + JWT
+              │ REST API (formatted data)
               ▼
 ┌─────────────────────────────────────┐
 │      Spring Boot Middleware         │
-│    (Cloud Run — 0-10 instances)     │
+│    (Cloud Run - Auto-scaling)       │
 │                                     │
-│  ✓ JWT authentication               │
-│  ✓ Validates & forwards requests    │
-│  ✓ Processes raw torrent data       │
-│  ✓ Formats speeds and status        │
-│  ✓ Persists state to PostgreSQL     │
-└──────┬──────────────────┬───────────┘
-       │ HTTP (ngrok)     │ TCP (ngrok)
-       ▼                  ▼
-┌──────────────┐   ┌──────────────────┐
-│ Python Agent │   │  PostgreSQL 16   │
-│  (local)     │   │  (local Docker)  │
-│  LibTorrent  │   │  Torrent state   │
-│  FastAPI     │   │  persistence     │
-└──────────────┘   └──────────────────┘
+│  ✓ Validates requests               │
+│  ✓ Forwards to Python agent         │
+│  ✓ Receives raw torrent data        │
+│  ✓ Processes & formats response     │
+│  ✓ Aggregates system metrics        │
+│  ✓ Manages state & caching          │
+│  ✓ Returns clean JSON to React      │
+└─────────────┬───────────────────────┘
+              │ HTTP over ngrok tunnel (raw data)
+              ▼
+┌─────────────────────────────────────┐
+│      Python Local Agent             │
+│    (User's Machine + ngrok)         │
+│   LibTorrent + File System          │
+│   Raw data collection               │
+└─────────────────────────────────────┘
 
 Region: southamerica-east1 (São Paulo)
 ```
 
 ---
 
-## 🎯 What SixEyes Proves
+## 🔄 Middleware Responsibilities
 
-🔹 **Hybrid architectures work** — Cloud + Local, best of both worlds
-🔹 **ngrok as infrastructure** — Secure tunnels replace static IPs entirely
-🔹 **Middleware processing matters** — Clean separation keeps React dumb and Python raw
-🔹 **Persistence without cloud cost** — Local PostgreSQL tunneled to Cloud Run
-🔹 **CI/CD from day one** — Push to production in minutes
+The Spring Boot middleware is not just a proxy — it's an intelligent processing layer:
+
+### 📥 **Inbound Processing**
+- Request validation and sanitization
+- Authentication and authorization (planned)
+- Rate limiting and throttling (planned)
+
+### 🔄 **Agent Communication**
+- Forwards commands to Python agent
+- Handles timeout and retry logic
+- Manages ngrok tunnel connectivity
+
+### 📤 **Outbound Processing**
+- Transforms raw LibTorrent data
+- Formats speeds (bytes/s → MB/s with 2 decimals)
+- Calculates percentages and ETA
+- Aggregates multiple torrent statistics
+- Adds timestamps and metadata
+- Maps Python enums to Java entities
+
+### 💾 **State Management**
+- Maintains torrent registry (in-memory H2)
+- Tracks torrent lifecycle
+- Provides RESTful interface to React
+
+---
+
+## 🔐 Security Features
+
+- Spring Security with CSRF protection
+- CORS configuration for Cloud Run domains
+- Secure ngrok tunnel (HTTPS)
+- Environment variable injection
+- No credentials in codebase (GitHub Secrets)
+- Input validation at middleware layer
+
+---
+
+## 💬 Want a Custom Version?
+
+Interested in adapting this architecture for other types of remote automation? 
+
+**Let's talk!** Comment or reach out directly.
 
 ---
 
@@ -237,11 +301,11 @@ Region: southamerica-east1 (São Paulo)
 
 **Made with 🔥 by Eduardo Alcaria**
 
-💼 [LinkedIn](https://linkedin.com/in/eduardoalcaria)
-📧 eduardoalcarialopes@gmail.com
-🐙 [GitHub](https://github.com/eduardoalcaria)
+💼 [LinkedIn](https://linkedin.com/in/eduardoalcaria)  
+📧 eduardoalcarialopes@gmail.com  
+🐙 [GitHub](https://github.com/eduardoalcaria) — Full code available  
 
 ---
 
-**License:** MIT
+**License:** MIT  
 **Status:** ![Stable Prototype](https://img.shields.io/badge/status-stable%20prototype-green) ![CI/CD](https://img.shields.io/badge/CI%2FCD-automated-blue) ![Cloud](https://img.shields.io/badge/cloud-GCP-blue)
