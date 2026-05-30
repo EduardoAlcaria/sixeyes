@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import type { SystemInfo } from '@/types'
 
-function gb(bytes: number): string {
-  return `${(bytes / 1024 ** 3).toFixed(1)} GB`
+// Java already reports storage in GB — format as-is, do not re-divide.
+function gb(value: number): string {
+  return `${value.toFixed(1)} GB`
 }
 
 export function StorageChart({ system }: { system: SystemInfo }) {
