@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-function gb(bytes: number): string {
-  return `${(bytes / 1024 ** 3).toFixed(0)} GB`
+// /system/disks already reports GB — format as-is, do not re-divide.
+function gb(value: number): string {
+  return `${value.toFixed(0)} GB`
 }
 
 export function SettingsPage() {
