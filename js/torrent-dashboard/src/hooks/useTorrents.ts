@@ -54,6 +54,19 @@ export function useTorrents() {
     }
   }, [fetchTorrents, showError])
 
+  const addTorrentFile = useCallback(async (file: File) => {
+    setLoading(true)
+    try {
+      await torrentApi.addFile(file)
+      await fetchTorrents()
+      setError(null)
+    } catch (e) {
+      showError((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }, [fetchTorrents, showError])
+
   const pauseTorrent = useCallback(async (id: number) => {
     try {
       const updated = await torrentApi.pause(id)
@@ -73,10 +86,12 @@ export function useTorrents() {
   }, [showError])
 
   const removeTorrent = useCallback(async (id: number) => {
+    let prev: Torrent[] = []
+    setTorrents(p => { prev = p; return p.filter(t => t.id !== id) }) // optimistic
     try {
       await torrentApi.remove(id)
-      setTorrents(prev => prev.filter(t => t.id !== id))
     } catch (e) {
+      setTorrents(prev) // rollback
       showError((e as Error).message)
     }
   }, [showError])
@@ -87,6 +102,7 @@ export function useTorrents() {
     loading,
     error,
     addTorrent,
+    addTorrentFile,
     pauseTorrent,
     resumeTorrent,
     removeTorrent,
