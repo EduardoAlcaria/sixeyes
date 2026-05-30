@@ -2,6 +2,10 @@
 downloads/
 .claude/
 
+# Cloudflare tunnel secrets (credentials + origin cert); config.yml is safe
+cloudflared/*.json
+cloudflared/cert.pem
+
 **/target/
 **/.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
