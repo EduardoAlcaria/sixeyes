@@ -4,8 +4,10 @@ services:
     image: postgres:16-alpine
     container_name: sixeyes-db
     restart: unless-stopped
-    ports:
-      - "5432:5432"
+    # Internal only — reached by the Java middleware over sixeyes-net.
+    # Not published to the host (avoids clashing with a local Postgres on 5432).
+    expose:
+      - "5432"
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USERNAME}
