@@ -40,7 +40,8 @@ services:
       - DOWNLOAD_PATH=/app/downloads
       - HOST_DRIVES=/host/C,/host/D
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9999/python/test"]
+      # alpine ships busybox wget, not curl; 127.0.0.1 avoids IPv6 ::1 refusal
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9999/python/test || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -71,7 +72,8 @@ services:
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9090/api/v1/torrents/test"]
+      # eclipse-temurin alpine has busybox wget, not curl; 127.0.0.1 avoids IPv6
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9090/api/v1/torrents/test || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
