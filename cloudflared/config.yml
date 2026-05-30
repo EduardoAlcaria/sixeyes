@@ -1,0 +1,9 @@
+# Locally-managed Cloudflare tunnel for SixEyes.
+# Mounted into the cloudflared container at /etc/cloudflared (read-only).
+tunnel: 5d49dec7-d2b2-4155-84c0-14aefa368fe6
+credentials-file: /etc/cloudflared/5d49dec7-d2b2-4155-84c0-14aefa368fe6.json
+
+ingress:
+  - hostname: sixeyes.alcaria.dev
+    service: http://sixeyes-frontend:80
+  - service: http_status:404
