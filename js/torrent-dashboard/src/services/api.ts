@@ -1,6 +1,6 @@
 import type { CompletedTorrent, DiskInfo, Settings, SystemInfo, Torrent } from '../types'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:9090'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
 function getToken(): string | null {
   return localStorage.getItem('token')
@@ -58,26 +58,46 @@ export const authApi = {
 
 export const torrentApi = {
   add: (magnet: string) =>
-    request<Torrent>('/api/torrents/add', {
+    request<Torrent>('/torrents/add', {
       method: 'POST',
       body: JSON.stringify({ magnet }),
     }),
-  getAll: () => request<Torrent[]>('/api/torrents/get'),
-  getCompleted: () => request<CompletedTorrent[]>('/api/torrents/getCompleted'),
-  pause: (id: number) => request<Torrent>(`/api/torrents/${id}/pause`, { method: 'PUT' }),
-  resume: (id: number) => request<Torrent>(`/api/torrents/${id}/resume`, { method: 'PUT' }),
-  remove: (id: number) => request<{ message: string }>(`/api/torrents/${id}/removeTorrent`, { method: 'DELETE' }),
+  addFile: async (file: File): Promise<Torrent> => {
+    const token = getToken()
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch(`${BASE_URL}/torrents/addFile`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form, // no Content-Type — browser sets the multipart boundary
+    })
+    if (res.status === 401) {
+      clearToken()
+      window.location.reload()
+      throw new Error('Session expired')
+    }
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}))
+      throw new Error((b as { message?: string }).message ?? `HTTP ${res.status}`)
+    }
+    return res.json() as Promise<Torrent>
+  },
+  getAll: () => request<Torrent[]>('/torrents/get'),
+  getCompleted: () => request<CompletedTorrent[]>('/torrents/getCompleted'),
+  pause: (id: number) => request<Torrent>(`/torrents/${id}/pause`, { method: 'PUT' }),
+  resume: (id: number) => request<Torrent>(`/torrents/${id}/resume`, { method: 'PUT' }),
+  remove: (id: number) => request<{ message: string }>(`/torrents/${id}/removeTorrent`, { method: 'DELETE' }),
 }
 
 export const systemApi = {
-  getInfo: () => request<SystemInfo>('/api/system/info'),
-  getDisks: () => request<DiskInfo[]>('/api/system/disks'),
+  getInfo: () => request<SystemInfo>('/system/info'),
+  getDisks: () => request<DiskInfo[]>('/system/disks'),
 }
 
 export const settingsApi = {
-  get: () => request<Settings>('/api/settings'),
+  get: () => request<Settings>('/settings'),
   update: (downloadPath: string) =>
-    request<Settings>('/api/settings', {
+    request<Settings>('/settings', {
       method: 'PUT',
       body: JSON.stringify({ downloadPath }),
     }),
