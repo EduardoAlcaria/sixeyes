@@ -96,9 +96,12 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: sixeyes-tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate run
-    environment:
-      - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+    # Locally-managed tunnel: ingress + credentials come from the mounted
+    # ./cloudflared dir (config.yml + <tunnel-id>.json), provisioned via the
+    # cloudflared CLI. No dashboard config and no TUNNEL_TOKEN needed.
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
     depends_on:
       - frontend
     networks:
