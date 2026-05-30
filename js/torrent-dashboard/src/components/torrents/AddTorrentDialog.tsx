@@ -59,9 +59,9 @@ export function AddTorrentDialog({ onAddMagnet, onAddFile, loading }: Props) {
           </Button>
         }
       />
-      <DialogContent>
+      <DialogContent className="p-6 sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add a torrent</DialogTitle>
+          <DialogTitle className="text-lg">Add a torrent</DialogTitle>
           <DialogDescription>Paste a magnet link or upload a .torrent file.</DialogDescription>
         </DialogHeader>
         <Tabs defaultValue="magnet">
@@ -74,8 +74,8 @@ export function AddTorrentDialog({ onAddMagnet, onAddFile, loading }: Props) {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="magnet">
-            <form onSubmit={submitMagnet} className="space-y-4 pt-2">
+          <TabsContent value="magnet" className="min-h-[180px]">
+            <form onSubmit={submitMagnet} className="space-y-4 pt-4">
               <div className="space-y-2">
                 <Label htmlFor="magnet">Magnet link</Label>
                 <Input
@@ -91,12 +91,12 @@ export function AddTorrentDialog({ onAddMagnet, onAddFile, loading }: Props) {
             </form>
           </TabsContent>
 
-          <TabsContent value="file">
-            <form onSubmit={submitFile} className="space-y-4 pt-2">
+          <TabsContent value="file" className="min-h-[180px]">
+            <form onSubmit={submitFile} className="space-y-4 pt-4">
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed py-8 text-sm text-muted-foreground transition-colors hover:bg-muted/50"
+                className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed py-10 text-sm text-muted-foreground transition-colors hover:bg-muted/50"
               >
                 <Upload className="size-6" />
                 {file ? (
