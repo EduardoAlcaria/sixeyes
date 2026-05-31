@@ -3,6 +3,8 @@ import { ArrowDown, ArrowUp } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -40,12 +42,21 @@ export function NetworkChart({ history }: { history: NetworkDataPoint[] }) {
   const last = history[history.length - 1]
   const down = last?.download ?? 0
   const up = last?.upload ?? 0
+  const live = down > 0 || up > 0
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between space-y-0">
         <div className="space-y-1">
-          <CardTitle>Network activity</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Network activity
+            <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              <span
+                className={`size-1.5 rounded-full ${live ? 'bg-chart-1 animate-pulse' : 'bg-muted-foreground/40'}`}
+              />
+              {live ? 'Live' : 'Idle'}
+            </span>
+          </CardTitle>
           <p className="text-xs text-muted-foreground">Last {Math.max(history.length, 1) * 5}s</p>
         </div>
         <div className="flex flex-col items-end gap-0.5">
@@ -73,12 +84,14 @@ export function NetworkChart({ history }: { history: NetworkDataPoint[] }) {
               axisLine={false}
               width={48}
               fontSize={11}
+              domain={[0, (max: number) => Math.max(max * 1.25, 0.1)]}
               tickFormatter={(v: number) => `${v.toFixed(1)}`}
               unit=" MB/s"
             />
             <ChartTooltip
               content={<ChartTooltipContent formatter={(v) => fmt(Number(v))} />}
             />
+            <ChartLegend content={<ChartLegendContent />} />
             <Area
               dataKey="download"
               type="monotone"
