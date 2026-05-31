@@ -1,3 +1,4 @@
+import { toast } from 'sonner'
 import { useTorrents } from '@/hooks/useTorrents'
 import { TorrentTable } from '@/components/torrents/TorrentTable'
 import { AddTorrentDialog } from '@/components/torrents/AddTorrentDialog'
@@ -10,8 +11,14 @@ export function TorrentsPage() {
     pauseTorrent,
     resumeTorrent,
     removeTorrent,
+    installGame,
     loading,
   } = useTorrents()
+
+  const install = async (id: number) => {
+    await installGame(id)
+    toast.success('Install queued — the host watcher will run setup.')
+  }
 
   return (
     <div className="space-y-6">
@@ -26,6 +33,7 @@ export function TorrentsPage() {
         onPause={pauseTorrent}
         onResume={resumeTorrent}
         onRemove={removeTorrent}
+        onInstall={install}
       />
     </div>
   )
