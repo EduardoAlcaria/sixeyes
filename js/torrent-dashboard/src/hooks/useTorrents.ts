@@ -94,11 +94,11 @@ export function useTorrents() {
     }
   }, [fetchCompleted, showError])
 
-  const removeTorrent = useCallback(async (id: number) => {
+  const removeTorrent = useCallback(async (id: number, deleteFiles = false) => {
     let prev: Torrent[] = []
     setTorrents(p => { prev = p; return p.filter(t => t.id !== id) }) // optimistic
     try {
-      await torrentApi.remove(id)
+      await torrentApi.remove(id, deleteFiles)
     } catch (e) {
       setTorrents(prev) // rollback
       showError((e as Error).message)
