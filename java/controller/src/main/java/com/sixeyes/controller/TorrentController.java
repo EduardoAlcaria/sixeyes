@@ -54,6 +54,11 @@ public class TorrentController {
         return ResponseEntity.ok(torrentService.pauseTorrent(id));
     }
 
+    @PutMapping("/{id}/stop")
+    public ResponseEntity<TorrentResponse> stop(@PathVariable @Positive Long id) {
+        return ResponseEntity.ok(torrentService.stopTorrent(id));
+    }
+
     @PutMapping("/{id}/resume")
     public ResponseEntity<TorrentResponse> resume(@PathVariable @Positive Long id) {
         return ResponseEntity.ok(torrentService.resumeTorrent(id));
