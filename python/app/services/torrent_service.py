@@ -194,6 +194,12 @@ threading.Thread(target=_resume_saver, daemon=True).start()
 
 
 def add_torrent(torrent_id: int, magnet: str, save_path: str | None = None) -> dict:
+    # Idempotent: if a live download thread already owns this id, don't start a
+    # second one (the reconcile loop may re-request an add we're already running).
+    existing = _threads.get(torrent_id)
+    if existing is not None and existing.is_alive():
+        return _torrents.get(torrent_id, {"id": torrent_id, "magnet": magnet})
+
     effective_path = _safe_save_path(save_path)
     os.makedirs(effective_path, exist_ok=True)
 
@@ -216,14 +222,33 @@ def get_all() -> list[dict]:
     return list(_torrents.values())
 
 
+def _halt(torrent_id: int, status: str) -> None:
+    """Pause/stop a torrent. Tolerant: if the engine doesn't hold it (e.g. lost
+    after a restart), just record the requested state instead of erroring."""
+    if torrent_id in _hash_by_id:
+        info_hash = _hash_by_id[torrent_id]
+        handle = _handles.get(info_hash)
+        if handle is not None:
+            handle.auto_managed(False)
+            handle.pause()
+    if torrent_id in _torrents:
+        _torrents[torrent_id]["status"] = status
+        _torrents[torrent_id]["downloadSpeed"] = 0.0
+        _torrents[torrent_id]["uploadSpeed"] = 0.0
+        _torrents[torrent_id]["eta"] = None
+
+
 def pause(torrent_id: int) -> None:
-    handle = _get_handle(torrent_id)
-    handle.auto_managed(False)
-    handle.pause()
-    _torrents[torrent_id]["status"] = TorrentStatus.PAUSED.value
+    _halt(torrent_id, TorrentStatus.PAUSED.value)
+
+
+def stop(torrent_id: int) -> None:
+    _halt(torrent_id, TorrentStatus.STOPPED.value)
 
 
 def resume(torrent_id: int) -> None:
+    # Raises KeyError if the engine lost this torrent — the caller (Java) then
+    # falls back to re-adding it from the magnet.
     handle = _get_handle(torrent_id)
     handle.auto_managed(True)
     handle.resume()
