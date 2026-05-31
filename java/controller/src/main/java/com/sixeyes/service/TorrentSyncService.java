@@ -9,8 +9,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -33,18 +35,37 @@ public class TorrentSyncService {
             Map<Long, Torrent> byId = active.stream()
                     .collect(Collectors.toMap(Torrent::getId, t -> t));
 
+            Set<Long> engineIds = new HashSet<>();
             pythonClient.fetchAllTorrentData().forEach(data -> {
                 if (data.get("id") instanceof Number n) {
+                    engineIds.add(n.longValue());
                     Torrent torrent = byId.get(n.longValue());
                     if (torrent != null) applyTelemetry(torrent, data);
                 }
             });
 
             torrentRepository.saveAll(active);
+            reconcileMissing(active, engineIds);
             log.debug("Synced {} active torrent(s) from engine", active.size());
 
         } catch (Exception e) {
             log.warn("Engine sync failed — will retry on next cycle: {}", e.getMessage());
+        }
+    }
+
+    // Self-heal: a DOWNLOADING torrent the engine no longer knows about (lost on
+    // an agent restart / state wipe) is silently dead. Re-add it from its magnet
+    // so the download resumes. Paused/Stopped/Seeding torrents are left alone.
+    private void reconcileMissing(List<Torrent> active, Set<Long> engineIds) {
+        for (Torrent t : active) {
+            if (t.getStatus() == TorrentStatus.DOWNLOADING && !engineIds.contains(t.getId())) {
+                try {
+                    pythonClient.startDownload(t.getId(), t.getMagnet(), t.getSavePath());
+                    log.info("Reconcile: re-added missing torrent id={} to engine", t.getId());
+                } catch (Exception e) {
+                    log.warn("Reconcile: re-add failed for id={}: {}", t.getId(), e.getMessage());
+                }
+            }
         }
     }
 
