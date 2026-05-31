@@ -76,6 +76,15 @@ export function useTorrents() {
     }
   }, [showError])
 
+  const stopTorrent = useCallback(async (id: number) => {
+    try {
+      const updated = await torrentApi.stop(id)
+      setTorrents(prev => prev.map(t => (t.id === id ? updated : t)))
+    } catch (e) {
+      showError((e as Error).message)
+    }
+  }, [showError])
+
   const resumeTorrent = useCallback(async (id: number) => {
     try {
       const updated = await torrentApi.resume(id)
@@ -113,6 +122,7 @@ export function useTorrents() {
     addTorrent,
     addTorrentFile,
     pauseTorrent,
+    stopTorrent,
     resumeTorrent,
     removeTorrent,
     installGame,
