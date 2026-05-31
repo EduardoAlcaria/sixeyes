@@ -6,9 +6,11 @@ slice of the catalog, so we walk lcp_page0 from 1 upward until a page returns no
 game entries, collecting every (title, url) along the way.
 
 Usage:
-    python scripts/fitgirl_scrape.py                 # full crawl -> fitgirl_games.json
-    python scripts/fitgirl_scrape.py --dump-only     # just save page 1 HTML
-    python scripts/fitgirl_scrape.py --max-pages 5   # cap pages (debug)
+    python scripts/fitgirl_scrape.py                    # full crawl -> fitgirl_games.json
+    python scripts/fitgirl_scrape.py --with-magnets     # also resolve each magnet
+    python scripts/fitgirl_scrape.py --magnet <gameurl> # one game's magnet, then exit
+    python scripts/fitgirl_scrape.py --dump-only        # just save page 1 HTML
+    python scripts/fitgirl_scrape.py --max-pages 5      # cap pages (debug)
     python scripts/fitgirl_scrape.py --out games.json --delay 1.5
 """
 from __future__ import annotations
@@ -48,6 +50,8 @@ _LINK_RE = re.compile(
     re.S,
 )
 _TAG_RE = re.compile(r"<[^>]+>")
+# A game page carries one magnet link for the repack.
+_MAGNET_RE = re.compile(r"magnet:\?xt=urn:btih:[^\"'\s<>]+")
 
 
 def _clean(text: str) -> str:
@@ -82,7 +86,18 @@ def extract(html: str) -> list[dict]:
     return games
 
 
-def crawl(out: str, max_pages: int, delay: float) -> int:
+def magnet_for(session: requests.Session, game_url: str) -> str | None:
+    """Fetch a single game page and return its decoded magnet link, if any."""
+    resp = session.get(game_url, timeout=30)
+    resp.raise_for_status()
+    m = _MAGNET_RE.search(resp.text)
+    if not m:
+        return None
+    # The href is HTML-escaped on the page (&#038; / &amp; for &).
+    return m.group(0).replace("&#038;", "&").replace("&amp;", "&")
+
+
+def crawl(out: str, max_pages: int, delay: float, with_magnets: bool) -> int:
     seen: set[str] = set()
     games: list[dict] = []
     with requests.Session() as s:
@@ -116,6 +131,20 @@ def crawl(out: str, max_pages: int, delay: float) -> int:
             page += 1
             time.sleep(delay)
 
+        if with_magnets:
+            print(f"\nfetching magnets for {len(games)} games...")
+            for i, g in enumerate(games, 1):
+                try:
+                    g["magnet"] = magnet_for(s, g["url"])
+                except requests.RequestException as e:
+                    g["magnet"] = None
+                    print(f"  {g['title']}: failed ({e})", file=sys.stderr)
+                if i % 50 == 0:
+                    print(f"  {i}/{len(games)}")
+                time.sleep(delay)
+            missing = sum(1 for g in games if not g.get("magnet"))
+            print(f"magnets resolved: {len(games) - missing}/{len(games)} ({missing} missing)")
+
     with open(out, "w", encoding="utf-8") as f:
         json.dump(games, f, ensure_ascii=False, indent=2)
     print(f"\nwrote {len(games)} games -> {out}")
@@ -138,10 +167,20 @@ def main() -> int:
     ap.add_argument("--max-pages", type=int, default=500)
     ap.add_argument("--delay", type=float, default=1.0)
     ap.add_argument("--dump-only", action="store_true")
+    ap.add_argument("--with-magnets", action="store_true",
+                    help="also fetch each game page for its magnet (1 request/game)")
+    ap.add_argument("--magnet", metavar="URL",
+                    help="print the magnet for a single game page and exit")
     args = ap.parse_args()
+    if args.magnet:
+        with requests.Session() as s:
+            s.headers.update(HEADERS)
+            mag = magnet_for(s, args.magnet)
+        print(mag or "no magnet found")
+        return 0 if mag else 1
     if args.dump_only:
         return dump_only()
-    return crawl(args.out, args.max_pages, args.delay)
+    return crawl(args.out, args.max_pages, args.delay, args.with_magnets)
 
 
 if __name__ == "__main__":
