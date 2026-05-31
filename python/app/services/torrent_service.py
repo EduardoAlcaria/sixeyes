@@ -17,14 +17,92 @@ MAX_FILES = int(os.getenv("MAX_TORRENT_FILES", "10000"))
 MAX_TOTAL_BYTES = int(os.getenv("MAX_TORRENT_BYTES", str(2 * 1024 ** 4)))  # 2 TiB
 
 
+def _host_drive_roots() -> list[tuple[str, str]]:
+    """[(realpath, label)] for each mounted host drive, e.g. (/host/C, 'C:')."""
+    env = os.getenv("HOST_DRIVES", "")
+    roots: list[tuple[str, str]] = []
+    for p in [x.strip() for x in env.split(",") if x.strip()]:
+        label = p.rstrip("/").split("/")[-1] + ":"
+        roots.append((os.path.realpath(p), label))
+    return roots
+
+
+_HOST_ROOTS = _host_drive_roots()
+# A save path is allowed anywhere under a mounted drive or the default downloads dir.
+_ALLOWED_ROOTS = [r for r, _ in _HOST_ROOTS] + [_SAVE_ROOT]
+
+
+def _is_within_allowed(resolved: str) -> bool:
+    for root in _ALLOWED_ROOTS:
+        if resolved == root or resolved.startswith(root + os.sep):
+            return True
+    return False
+
+
 def _safe_save_path(candidate: str | None) -> str:
-    """Resolve candidate under the download root; reject traversal/escape."""
+    """Resolve candidate under an allowed root (mounted drive or downloads); reject escape."""
     if not candidate:
         return _SAVE_ROOT
     resolved = os.path.realpath(candidate)
-    if resolved != _SAVE_ROOT and not resolved.startswith(_SAVE_ROOT + os.sep):
-        raise ValueError(f"save_path escapes download root: {candidate}")
+    if not _is_within_allowed(resolved):
+        raise ValueError(f"save_path not under an allowed root: {candidate}")
     return resolved
+
+
+def _device_label(path: str) -> str:
+    """Which mounted drive (C:/D:) a path physically lives on, by st_dev match."""
+    try:
+        dev = os.stat(path).st_dev
+    except OSError:
+        return "downloads"
+    for root, label in _HOST_ROOTS:
+        try:
+            if os.stat(root).st_dev == dev:
+                return label
+        except OSError:
+            continue
+    return "downloads"
+
+
+def list_dir(path: str | None) -> dict:
+    """List sub-directories of an allowed path. No path -> the drive roots."""
+    if not path:
+        entries = [{"name": label, "path": root} for root, label in _HOST_ROOTS]
+        entries.append({"name": "downloads", "path": _SAVE_ROOT})
+        return {"path": "", "parent": None, "entries": entries}
+
+    resolved = os.path.realpath(path)
+    if not _is_within_allowed(resolved):
+        raise ValueError("path not allowed")
+    if not os.path.isdir(resolved):
+        raise ValueError("not a directory")
+
+    entries: list[dict] = []
+    try:
+        for name in sorted(os.listdir(resolved), key=str.lower):
+            full = os.path.join(resolved, name)
+            if os.path.isdir(full):
+                entries.append({"name": name, "path": full})
+    except PermissionError:
+        pass
+
+    parent = os.path.dirname(resolved)
+    parent = parent if (parent != resolved and _is_within_allowed(parent)) else None
+    return {"path": resolved, "parent": parent, "entries": entries}
+
+
+def make_dir(parent: str, name: str) -> dict:
+    """Create a new sub-directory under an allowed parent."""
+    if not name or "/" in name or "\\" in name or name in (".", ".."):
+        raise ValueError("invalid folder name")
+    base = os.path.realpath(parent)
+    if not _is_within_allowed(base):
+        raise ValueError("parent not allowed")
+    target = os.path.realpath(os.path.join(base, name))
+    if not _is_within_allowed(target):
+        raise ValueError("target not allowed")
+    os.makedirs(target, exist_ok=True)
+    return {"path": target}
 
 
 def magnet_from_torrent_bytes(data: bytes) -> str:
@@ -93,7 +171,12 @@ def remove(torrent_id: int) -> None:
 
 def get_storage_info() -> dict:
     usage = shutil.disk_usage(DEFAULT_SAVE_PATH)
-    return {"Used": usage.used, "Total": usage.total, "Available": usage.free}
+    return {
+        "Used": usage.used,
+        "Total": usage.total,
+        "Available": usage.free,
+        "Device": _device_label(DEFAULT_SAVE_PATH),
+    }
 
 
 def get_disks() -> list[dict]:
