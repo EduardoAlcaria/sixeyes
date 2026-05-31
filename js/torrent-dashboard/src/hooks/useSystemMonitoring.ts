@@ -10,11 +10,24 @@ const DEFAULT_SYSTEM: SystemInfo = {
   network: { downloadSpeed: 0, uploadSpeed: 0 },
 }
 
+const HISTORY_KEY = 'sixeyes:netHistory'
+
+function loadHistory(): NetworkDataPoint[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.slice(-MAX_HISTORY) : []
+  } catch {
+    return []
+  }
+}
+
 // Module-level singleton store: history + system survive component remounts
-// (navigating between pages) and a single poll loop is shared by all callers,
-// so the network graph keeps building instead of resetting on every mount.
+// (navigating between pages) and a single poll loop is shared by all callers.
+// History is also mirrored to localStorage so a full page reload keeps the graph.
 let system: SystemInfo = DEFAULT_SYSTEM
-let history: NetworkDataPoint[] = []
+let history: NetworkDataPoint[] = loadHistory()
 let started = false
 const listeners = new Set<() => void>()
 
@@ -36,6 +49,11 @@ async function poll() {
       ...history,
       { time, download: data.network.downloadSpeed, upload: data.network.uploadSpeed },
     ].slice(-MAX_HISTORY)
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+    } catch {
+      // storage full / unavailable — graph still works in-memory
+    }
     emit()
   } catch {
     // non-critical — keep previous values
