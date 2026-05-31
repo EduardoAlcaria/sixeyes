@@ -13,12 +13,18 @@ export function TorrentsPage() {
     resumeTorrent,
     removeTorrent,
     installGame,
+    cancelInstall,
     loading,
   } = useTorrents()
 
   const install = async (id: number) => {
     await installGame(id)
     toast.success('Install queued — the host watcher will run setup.')
+  }
+
+  const unqueue = async (id: number) => {
+    await cancelInstall(id)
+    toast.success('Removed from install queue.')
   }
 
   return (
@@ -36,6 +42,7 @@ export function TorrentsPage() {
         onResume={resumeTorrent}
         onRemove={removeTorrent}
         onInstall={install}
+        onCancelInstall={unqueue}
       />
     </div>
   )
