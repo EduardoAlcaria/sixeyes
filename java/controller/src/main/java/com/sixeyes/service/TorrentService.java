@@ -145,6 +145,14 @@ public class TorrentService {
         return TorrentResponse.from(torrentRepository.save(torrent));
     }
 
+    public TorrentResponse cancelInstall(Long id) {
+        Torrent torrent = findOrThrow(id);
+        torrent.setInstallStatus("NONE");
+        torrent.setInstallMessage(null);
+        log.info("Install cancelled: id={}", id);
+        return TorrentResponse.from(torrentRepository.save(torrent));
+    }
+
     @Transactional(readOnly = true)
     public List<InstallJob> getInstallQueue() {
         return torrentRepository.findByInstallStatus("REQUESTED").stream()
