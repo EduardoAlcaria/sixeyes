@@ -75,7 +75,7 @@ export function CompletedPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-xl border overflow-hidden">
+        <div className="border-y overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
