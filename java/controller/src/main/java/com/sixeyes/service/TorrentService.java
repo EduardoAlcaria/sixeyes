@@ -104,11 +104,11 @@ public class TorrentService {
         return TorrentResponse.from(torrentRepository.save(torrent));
     }
 
-    public void removeTorrent(Long id) {
+    public void removeTorrent(Long id, boolean deleteFiles) {
         Torrent torrent = findOrThrow(id);
-        pythonClient.remove(torrent.getId(), torrent.getMagnet());
+        pythonClient.remove(torrent.getId(), torrent.getMagnet(), deleteFiles);
         torrentRepository.deleteById(id);
-        log.info("Torrent removed: id={}", id);
+        log.info("Torrent removed: id={} deleteFiles={}", id, deleteFiles);
     }
 
     // --- Host auto-installer (manual trigger -> host watcher executes setup.exe) ---
