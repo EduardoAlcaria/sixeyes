@@ -37,3 +37,7 @@ cloudflared/cert.pem
 
 .DS_Store
 Thumbs.db
+
+# FitGirl scrape artifacts
+fitgirl_az.html
+fitgirl_games.json
