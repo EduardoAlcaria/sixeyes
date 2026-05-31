@@ -80,6 +80,11 @@ public class TorrentController {
         return ResponseEntity.ok(torrentService.requestInstall(id));
     }
 
+    @DeleteMapping("/{id}/install")
+    public ResponseEntity<TorrentResponse> cancelInstall(@PathVariable @Positive Long id) {
+        return ResponseEntity.ok(torrentService.cancelInstall(id));
+    }
+
     @GetMapping("/install/queue")
     public ResponseEntity<List<com.sixeyes.dto.response.InstallJob>> installQueue() {
         return ResponseEntity.ok(torrentService.getInstallQueue());
