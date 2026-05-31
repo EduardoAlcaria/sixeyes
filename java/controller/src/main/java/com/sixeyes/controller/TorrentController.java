@@ -26,13 +26,17 @@ public class TorrentController {
 
     @PostMapping("/add")
     public ResponseEntity<TorrentResponse> add(@Valid @RequestBody AddTorrentRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(torrentService.addTorrent(request.magnet()));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(torrentService.addTorrent(request.magnet(), request.downloadPath()));
     }
 
     @PostMapping(value = "/addFile", consumes = "multipart/form-data")
-    public ResponseEntity<TorrentResponse> addFile(@RequestParam("file") MultipartFile file) throws java.io.IOException {
+    public ResponseEntity<TorrentResponse> addFile(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "downloadPath", required = false) String downloadPath
+    ) throws java.io.IOException {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(torrentService.addTorrentFromFile(file.getBytes(), file.getOriginalFilename()));
+                .body(torrentService.addTorrentFromFile(file.getBytes(), file.getOriginalFilename(), downloadPath));
     }
 
     @GetMapping("/get")
