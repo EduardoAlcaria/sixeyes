@@ -15,6 +15,7 @@ class AddTorrentRequest(BaseModel):
 class TorrentIdRequest(BaseModel):
     id: int
     magnet: str | None = None
+    deleteFiles: bool = False
 
 
 @router.post("/add", status_code=201)
@@ -47,7 +48,7 @@ def resume(body: TorrentIdRequest):
 
 @router.delete("/remove")
 def remove(body: TorrentIdRequest):
-    torrent_service.remove(body.id)
+    torrent_service.remove(body.id, body.deleteFiles)
     return {"success": True, "message": "Torrent removed"}
 
 
