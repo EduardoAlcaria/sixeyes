@@ -94,6 +94,7 @@ export const torrentApi = {
       { method: 'DELETE' },
     ),
   install: (id: number) => request<Torrent>(`/torrents/${id}/install`, { method: 'POST' }),
+  cancelInstall: (id: number) => request<Torrent>(`/torrents/${id}/install`, { method: 'DELETE' }),
 }
 
 export const systemApi = {
