@@ -60,8 +60,11 @@ public class TorrentController {
     }
 
     @DeleteMapping("/{id}/removeTorrent")
-    public ResponseEntity<Map<String, String>> remove(@PathVariable @Positive Long id) {
-        torrentService.removeTorrent(id);
+    public ResponseEntity<Map<String, String>> remove(
+            @PathVariable @Positive Long id,
+            @RequestParam(value = "deleteFiles", defaultValue = "false") boolean deleteFiles
+    ) {
+        torrentService.removeTorrent(id, deleteFiles);
         return ResponseEntity.ok(Map.of("message", "Torrent removed", "id", id.toString()));
     }
 
