@@ -1,4 +1,5 @@
-import { Pause, Play, Trash2, Users } from 'lucide-react'
+import { useState } from 'react'
+import { Download, MoreVertical, Pause, Play, Trash2, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -11,14 +12,32 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import type { Torrent, TorrentStatus } from '@/types'
 
 interface Props {
   torrents: Torrent[]
   onPause: (id: number) => void
   onResume: (id: number) => void
-  onRemove: (id: number) => void
+  onRemove: (id: number, deleteFiles: boolean) => void
+  onInstall: (id: number) => void
 }
+
+type RowProps = { t: Torrent } & Omit<Props, 'torrents'>
 
 const statusClass: Record<TorrentStatus, string> = {
   Downloading: 'bg-chart-1/15 text-chart-1',
@@ -32,35 +51,93 @@ function StatusBadge({ status }: { status: TorrentStatus }) {
   return <Badge className={statusClass[status] ?? ''}>{status}</Badge>
 }
 
-// Inline, always-visible controls — pause/resume toggle + remove. Replaces the
-// hidden dropdown so the actions are one tap away.
-function RowActions({ t, onPause, onResume, onRemove }: { t: Torrent } & Omit<Props, 'torrents'>) {
+// 3-dot menu: pause/resume, queue host install, or delete. Delete opens a
+// confirm dialog that also offers to wipe the downloaded files from disk.
+function RowActions({ t, onPause, onResume, onRemove, onInstall }: RowProps) {
   const paused = t.status === 'Paused' || t.status === 'Stopped'
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [wipeDisk, setWipeDisk] = useState(false)
+
   return (
-    <div className="flex items-center justify-end gap-1">
-      {paused ? (
-        <Button variant="ghost" size="icon" aria-label="Resume" onClick={() => onResume(t.id)}>
-          <Play className="size-4" />
-        </Button>
-      ) : (
-        <Button variant="ghost" size="icon" aria-label="Pause" onClick={() => onPause(t.id)}>
-          <Pause className="size-4" />
-        </Button>
-      )}
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label="Remove"
-        className="text-muted-foreground hover:text-destructive"
-        onClick={() => onRemove(t.id)}
-      >
-        <Trash2 className="size-4" />
-      </Button>
-    </div>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="ghost" size="icon" aria-label="Actions">
+              <MoreVertical className="size-4" />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end">
+          {paused ? (
+            <DropdownMenuItem onClick={() => onResume(t.id)}>
+              <Play className="size-4" /> Resume
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={() => onPause(t.id)}>
+              <Pause className="size-4" /> Pause
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={() => onInstall(t.id)}>
+            <Download className="size-4" /> Install
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => {
+              setWipeDisk(false)
+              setConfirmOpen(true)
+            }}
+          >
+            <Trash2 className="size-4" /> Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete torrent?</DialogTitle>
+            <DialogDescription>
+              Remove “{t.title ?? 'this torrent'}” from SixEyes. This stops the transfer and
+              clears it from the dashboard.
+            </DialogDescription>
+          </DialogHeader>
+          <label className="flex items-start gap-3 rounded-lg border p-3 text-sm cursor-pointer hover:bg-accent">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 accent-destructive"
+              checked={wipeDisk}
+              onChange={e => setWipeDisk(e.target.checked)}
+            />
+            <span>
+              <span className="font-medium">Also delete downloaded files from disk</span>
+              <span className="block text-xs text-muted-foreground">
+                Permanently erases the data on the host. Cannot be undone.
+              </span>
+            </span>
+          </label>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                onRemove(t.id, wipeDisk)
+                setConfirmOpen(false)
+              }}
+            >
+              {wipeDisk ? 'Delete + wipe files' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
-export function TorrentTable({ torrents, onPause, onResume, onRemove }: Props) {
+export function TorrentTable({ torrents, onPause, onResume, onRemove, onInstall }: Props) {
   if (torrents.length === 0) {
     return (
       <Card>
@@ -84,7 +161,7 @@ export function TorrentTable({ torrents, onPause, onResume, onRemove }: Props) {
               <TableHead className="text-right">Peers</TableHead>
               <TableHead>ETA</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-24 text-right">Actions</TableHead>
+              <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -112,7 +189,13 @@ export function TorrentTable({ torrents, onPause, onResume, onRemove }: Props) {
                   <StatusBadge status={t.status} />
                 </TableCell>
                 <TableCell>
-                  <RowActions t={t} onPause={onPause} onResume={onResume} onRemove={onRemove} />
+                  <RowActions
+                    t={t}
+                    onPause={onPause}
+                    onResume={onResume}
+                    onRemove={onRemove}
+                    onInstall={onInstall}
+                  />
                 </TableCell>
               </TableRow>
             ))}
@@ -130,7 +213,13 @@ export function TorrentTable({ torrents, onPause, onResume, onRemove }: Props) {
                   <p className="font-medium truncate">{t.title ?? 'Fetching metadata…'}</p>
                   <p className="text-xs text-muted-foreground">{t.size}</p>
                 </div>
-                <RowActions t={t} onPause={onPause} onResume={onResume} onRemove={onRemove} />
+                <RowActions
+                  t={t}
+                  onPause={onPause}
+                  onResume={onResume}
+                  onRemove={onRemove}
+                  onInstall={onInstall}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <Progress value={t.progress} className="h-2 flex-1" />
