@@ -1,4 +1,4 @@
-import { MoreVertical, Pause, Play, Trash2, Users } from 'lucide-react'
+import { Pause, Play, Trash2, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -11,12 +11,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import type { Torrent, TorrentStatus } from '@/types'
 
 interface Props {
@@ -38,32 +32,31 @@ function StatusBadge({ status }: { status: TorrentStatus }) {
   return <Badge className={statusClass[status] ?? ''}>{status}</Badge>
 }
 
+// Inline, always-visible controls — pause/resume toggle + remove. Replaces the
+// hidden dropdown so the actions are one tap away.
 function RowActions({ t, onPause, onResume, onRemove }: { t: Torrent } & Omit<Props, 'torrents'>) {
   const paused = t.status === 'Paused' || t.status === 'Stopped'
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button variant="ghost" size="icon" aria-label="Actions">
-            <MoreVertical className="size-4" />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end">
-        {paused ? (
-          <DropdownMenuItem onClick={() => onResume(t.id)}>
-            <Play className="size-4" /> Resume
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem onClick={() => onPause(t.id)}>
-            <Pause className="size-4" /> Pause
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem variant="destructive" onClick={() => onRemove(t.id)}>
-          <Trash2 className="size-4" /> Remove
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="flex items-center justify-end gap-1">
+      {paused ? (
+        <Button variant="ghost" size="icon" aria-label="Resume" onClick={() => onResume(t.id)}>
+          <Play className="size-4" />
+        </Button>
+      ) : (
+        <Button variant="ghost" size="icon" aria-label="Pause" onClick={() => onPause(t.id)}>
+          <Pause className="size-4" />
+        </Button>
+      )}
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Remove"
+        className="text-muted-foreground hover:text-destructive"
+        onClick={() => onRemove(t.id)}
+      >
+        <Trash2 className="size-4" />
+      </Button>
+    </div>
   )
 }
 
@@ -81,7 +74,7 @@ export function TorrentTable({ torrents, onPause, onResume, onRemove }: Props) {
   return (
     <>
       {/* desktop / tablet table */}
-      <div className="hidden md:block rounded-xl border overflow-hidden">
+      <div className="hidden md:block border-y overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -91,7 +84,7 @@ export function TorrentTable({ torrents, onPause, onResume, onRemove }: Props) {
               <TableHead className="text-right">Peers</TableHead>
               <TableHead>ETA</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-10" />
+              <TableHead className="w-24 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
