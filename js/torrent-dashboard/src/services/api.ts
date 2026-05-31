@@ -86,6 +86,7 @@ export const torrentApi = {
   getAll: () => request<Torrent[]>('/torrents/get'),
   getCompleted: () => request<CompletedTorrent[]>('/torrents/getCompleted'),
   pause: (id: number) => request<Torrent>(`/torrents/${id}/pause`, { method: 'PUT' }),
+  stop: (id: number) => request<Torrent>(`/torrents/${id}/stop`, { method: 'PUT' }),
   resume: (id: number) => request<Torrent>(`/torrents/${id}/resume`, { method: 'PUT' }),
   remove: (id: number, deleteFiles = false) =>
     request<{ message: string }>(
