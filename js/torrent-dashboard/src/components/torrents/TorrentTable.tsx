@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Download, MoreVertical, Pause, Play, Trash2, Users } from 'lucide-react'
+import { Download, MoreVertical, Pause, Play, Square, Trash2, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -32,6 +32,7 @@ import type { Torrent, TorrentStatus } from '@/types'
 interface Props {
   torrents: Torrent[]
   onPause: (id: number) => void
+  onStop: (id: number) => void
   onResume: (id: number) => void
   onRemove: (id: number, deleteFiles: boolean) => void
   onInstall: (id: number) => void
@@ -53,8 +54,8 @@ function StatusBadge({ status }: { status: TorrentStatus }) {
 
 // 3-dot menu: pause/resume, queue host install, or delete. Delete opens a
 // confirm dialog that also offers to wipe the downloaded files from disk.
-function RowActions({ t, onPause, onResume, onRemove, onInstall }: RowProps) {
-  const paused = t.status === 'Paused' || t.status === 'Stopped'
+function RowActions({ t, onPause, onStop, onResume, onRemove, onInstall }: RowProps) {
+  const halted = t.status === 'Paused' || t.status === 'Stopped'
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [wipeDisk, setWipeDisk] = useState(false)
 
@@ -69,13 +70,18 @@ function RowActions({ t, onPause, onResume, onRemove, onInstall }: RowProps) {
           }
         />
         <DropdownMenuContent align="end">
-          {paused ? (
+          {halted ? (
             <DropdownMenuItem onClick={() => onResume(t.id)}>
               <Play className="size-4" /> Resume
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem onClick={() => onPause(t.id)}>
               <Pause className="size-4" /> Pause
+            </DropdownMenuItem>
+          )}
+          {t.status !== 'Stopped' && (
+            <DropdownMenuItem onClick={() => onStop(t.id)}>
+              <Square className="size-4" /> Stop
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={() => onInstall(t.id)}>
@@ -137,7 +143,7 @@ function RowActions({ t, onPause, onResume, onRemove, onInstall }: RowProps) {
   )
 }
 
-export function TorrentTable({ torrents, onPause, onResume, onRemove, onInstall }: Props) {
+export function TorrentTable({ torrents, onPause, onStop, onResume, onRemove, onInstall }: Props) {
   if (torrents.length === 0) {
     return (
       <Card>
@@ -192,6 +198,7 @@ export function TorrentTable({ torrents, onPause, onResume, onRemove, onInstall 
                   <RowActions
                     t={t}
                     onPause={onPause}
+                    onStop={onStop}
                     onResume={onResume}
                     onRemove={onRemove}
                     onInstall={onInstall}
@@ -216,6 +223,7 @@ export function TorrentTable({ torrents, onPause, onResume, onRemove, onInstall 
                 <RowActions
                   t={t}
                   onPause={onPause}
+                  onStop={onStop}
                   onResume={onResume}
                   onRemove={onRemove}
                   onInstall={onInstall}
