@@ -101,6 +101,10 @@ public class PythonClientService {
         exchange("/python/pause", HttpMethod.PUT, new TorrentIdBody(id, magnet));
     }
 
+    public void stop(Long id, String magnet) {
+        exchange("/python/stop", HttpMethod.PUT, new TorrentIdBody(id, magnet));
+    }
+
     public void resume(Long id, String magnet) {
         exchange("/python/resume", HttpMethod.PUT, new TorrentIdBody(id, magnet));
     }
