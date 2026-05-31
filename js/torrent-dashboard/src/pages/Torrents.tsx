@@ -9,6 +9,7 @@ export function TorrentsPage() {
     addTorrent,
     addTorrentFile,
     pauseTorrent,
+    stopTorrent,
     resumeTorrent,
     removeTorrent,
     installGame,
@@ -31,6 +32,7 @@ export function TorrentsPage() {
       <TorrentTable
         torrents={torrents}
         onPause={pauseTorrent}
+        onStop={stopTorrent}
         onResume={resumeTorrent}
         onRemove={removeTorrent}
         onInstall={install}
