@@ -230,14 +230,23 @@ def resume(torrent_id: int) -> None:
     _torrents[torrent_id]["status"] = TorrentStatus.DOWNLOADING.value
 
 
-def remove(torrent_id: int) -> None:
+def remove(torrent_id: int, delete_files: bool = False) -> None:
     if torrent_id in _hash_by_id:
         info_hash = _hash_by_id[torrent_id]
         if info_hash in _handles:
             handle = _handles.pop(info_hash)
             _id_by_handle.pop(handle, None)
             handle.pause()
-            _session.remove_torrent(handle)
+            if delete_files:
+                # Wipe the downloaded payload from disk too, not just the session.
+                flag = getattr(lt, "session", None)
+                opt = getattr(flag, "delete_files", None) if flag else None
+                if opt is not None:
+                    _session.remove_torrent(handle, opt)
+                else:
+                    _session.remove_torrent(handle, 1)  # delete_files == 1
+            else:
+                _session.remove_torrent(handle)
         del _hash_by_id[torrent_id]
 
     _threads.pop(torrent_id, None)
