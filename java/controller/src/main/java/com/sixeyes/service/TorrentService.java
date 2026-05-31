@@ -33,6 +33,10 @@ public class TorrentService {
     private double minFreeGb;
 
     public TorrentResponse addTorrent(String magnetLink) {
+        return addTorrent(magnetLink, null);
+    }
+
+    public TorrentResponse addTorrent(String magnetLink, String requestedPath) {
         if (magnetLink == null || !magnetLink.startsWith("magnet:")) {
             throw new InvalidMagnetException(magnetLink);
         }
@@ -40,7 +44,9 @@ public class TorrentService {
             throw new DuplicateMagnetException();
         }
 
-        String downloadPath = settingsService.getDownloadPath();
+        String downloadPath = (requestedPath != null && !requestedPath.isBlank())
+                ? requestedPath
+                : settingsService.getDownloadPath();
         validateStorage(downloadPath);
 
         Torrent torrent = torrentRepository.save(new Torrent(magnetLink));
@@ -51,8 +57,12 @@ public class TorrentService {
     }
 
     public TorrentResponse addTorrentFromFile(byte[] torrentBytes, String filename) {
+        return addTorrentFromFile(torrentBytes, filename, null);
+    }
+
+    public TorrentResponse addTorrentFromFile(byte[] torrentBytes, String filename, String requestedPath) {
         String magnet = pythonClient.magnetFromFile(torrentBytes, filename);
-        return addTorrent(magnet);
+        return addTorrent(magnet, requestedPath);
     }
 
     @Transactional(readOnly = true)
