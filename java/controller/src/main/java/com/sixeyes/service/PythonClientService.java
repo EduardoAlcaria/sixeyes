@@ -36,6 +36,7 @@ public class PythonClientService {
     ) {}
 
     private record TorrentIdBody(long id, String magnet) {}
+    private record RemoveBody(long id, String magnet, boolean deleteFiles) {}
 
     private record MkdirBody(String parent, String name) {}
 
@@ -104,8 +105,8 @@ public class PythonClientService {
         exchange("/python/resume", HttpMethod.PUT, new TorrentIdBody(id, magnet));
     }
 
-    public void remove(Long id, String magnet) {
-        exchange("/python/remove", HttpMethod.DELETE, new TorrentIdBody(id, magnet));
+    public void remove(Long id, String magnet, boolean deleteFiles) {
+        exchange("/python/remove", HttpMethod.DELETE, new RemoveBody(id, magnet, deleteFiles));
     }
 
     public Map<String, Object> fetchStorageInfo() {
