@@ -84,21 +84,45 @@ public class TorrentService {
     }
 
     public TorrentResponse pauseTorrent(Long id) {
-        Torrent torrent = findOrThrow(id);
-        pythonClient.pause(torrent.getId(), torrent.getMagnet());
+        return halt(id, TorrentStatus.PAUSED);
+    }
 
-        torrent.setStatus(TorrentStatus.PAUSED);
+    public TorrentResponse stopTorrent(Long id) {
+        return halt(id, TorrentStatus.STOPPED);
+    }
+
+    // Pause/stop are best-effort against the engine: if the agent no longer
+    // holds the torrent (e.g. it was lost on a restart), we still record the
+    // requested state so it sticks and the reconcile loop won't revive it.
+    private TorrentResponse halt(Long id, TorrentStatus status) {
+        Torrent torrent = findOrThrow(id);
+        try {
+            if (status == TorrentStatus.STOPPED) {
+                pythonClient.stop(torrent.getId(), torrent.getMagnet());
+            } else {
+                pythonClient.pause(torrent.getId(), torrent.getMagnet());
+            }
+        } catch (RuntimeException e) {
+            log.warn("Engine {} failed for id={} (recording state anyway): {}",
+                    status, id, e.getMessage());
+        }
+        torrent.setStatus(status);
         torrent.setDownloadSpeed("0.00 MB/s");
         torrent.setUploadSpeed("0.00 MB/s");
         torrent.setEta(null);
-
-        log.info("Torrent paused: id={}", id);
+        log.info("Torrent {}: id={}", status, id);
         return TorrentResponse.from(torrentRepository.save(torrent));
     }
 
     public TorrentResponse resumeTorrent(Long id) {
         Torrent torrent = findOrThrow(id);
-        pythonClient.resume(torrent.getId(), torrent.getMagnet());
+        try {
+            pythonClient.resume(torrent.getId(), torrent.getMagnet());
+        } catch (RuntimeException e) {
+            // Engine lost this torrent — re-add it from the magnet to restart.
+            log.info("Resume: engine missing id={}, re-adding from magnet", id);
+            pythonClient.startDownload(torrent.getId(), torrent.getMagnet(), torrent.getSavePath());
+        }
         torrent.setStatus(torrent.isCompleted() ? TorrentStatus.SEEDING : TorrentStatus.DOWNLOADING);
         log.info("Torrent resumed: id={}", id);
         return TorrentResponse.from(torrentRepository.save(torrent));
