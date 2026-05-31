@@ -87,7 +87,11 @@ export const torrentApi = {
   getCompleted: () => request<CompletedTorrent[]>('/torrents/getCompleted'),
   pause: (id: number) => request<Torrent>(`/torrents/${id}/pause`, { method: 'PUT' }),
   resume: (id: number) => request<Torrent>(`/torrents/${id}/resume`, { method: 'PUT' }),
-  remove: (id: number) => request<{ message: string }>(`/torrents/${id}/removeTorrent`, { method: 'DELETE' }),
+  remove: (id: number, deleteFiles = false) =>
+    request<{ message: string }>(
+      `/torrents/${id}/removeTorrent?deleteFiles=${deleteFiles}`,
+      { method: 'DELETE' },
+    ),
   install: (id: number) => request<Torrent>(`/torrents/${id}/install`, { method: 'POST' }),
 }
 
