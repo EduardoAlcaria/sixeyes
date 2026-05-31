@@ -97,11 +97,20 @@ export function useTorrents() {
   const installGame = useCallback(async (id: number) => {
     try {
       await torrentApi.install(id)
-      await fetchCompleted()
+      await Promise.all([fetchTorrents(), fetchCompleted()])
     } catch (e) {
       showError((e as Error).message)
     }
-  }, [fetchCompleted, showError])
+  }, [fetchTorrents, fetchCompleted, showError])
+
+  const cancelInstall = useCallback(async (id: number) => {
+    try {
+      await torrentApi.cancelInstall(id)
+      await Promise.all([fetchTorrents(), fetchCompleted()])
+    } catch (e) {
+      showError((e as Error).message)
+    }
+  }, [fetchTorrents, fetchCompleted, showError])
 
   const removeTorrent = useCallback(async (id: number, deleteFiles = false) => {
     let prev: Torrent[] = []
@@ -126,5 +135,6 @@ export function useTorrents() {
     resumeTorrent,
     removeTorrent,
     installGame,
+    cancelInstall,
   }
 }
