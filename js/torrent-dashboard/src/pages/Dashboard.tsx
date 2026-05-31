@@ -3,6 +3,7 @@ import { useSystemMonitoring } from '@/hooks/useSystemMonitoring'
 import { StatCards } from '@/components/dashboard/StatCards'
 import { NetworkChart } from '@/components/dashboard/NetworkChart'
 import { StorageChart } from '@/components/dashboard/StorageChart'
+import { ActiveDownloads } from '@/components/dashboard/ActiveDownloads'
 
 export function DashboardPage() {
   const { torrents } = useTorrents()
@@ -15,6 +16,7 @@ export function DashboardPage() {
         <NetworkChart history={history} />
         <StorageChart system={system} />
       </div>
+      <ActiveDownloads torrents={torrents} />
     </div>
   )
 }
