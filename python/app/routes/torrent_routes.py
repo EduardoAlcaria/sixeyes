@@ -37,6 +37,12 @@ def pause(body: TorrentIdRequest):
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.put("/stop")
+def stop(body: TorrentIdRequest):
+    torrent_service.stop(body.id)
+    return {"success": True}
+
+
 @router.put("/resume")
 def resume(body: TorrentIdRequest):
     try:
