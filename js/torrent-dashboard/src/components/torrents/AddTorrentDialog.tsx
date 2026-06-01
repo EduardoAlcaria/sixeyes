@@ -1,18 +1,16 @@
 import { useRef, useState } from 'react'
-import { FolderOpen, Plus, Upload } from 'lucide-react'
+import { FolderOpen, LinkIcon, Plus, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { FolderPicker, friendlyPath } from '@/components/torrents/FolderPicker'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface Props {
@@ -62,50 +60,47 @@ export function AddTorrentDialog({ onAddMagnet, onAddFile, loading }: Props) {
           </Button>
         }
       />
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Add a torrent</DialogTitle>
-          <DialogDescription>Paste a magnet link or upload a .torrent file.</DialogDescription>
+          <DialogTitle className="text-base">Add a torrent</DialogTitle>
         </DialogHeader>
-        <Tabs defaultValue="magnet">
-          <TabsList className="w-full">
-            <TabsTrigger value="magnet" className="flex-1">
-              Magnet
-            </TabsTrigger>
-            <TabsTrigger value="file" className="flex-1">
-              File
-            </TabsTrigger>
+
+        <Tabs defaultValue="magnet" className="gap-3">
+          <TabsList className="h-8 w-full">
+            <TabsTrigger value="magnet" className="flex-1 text-xs">Magnet</TabsTrigger>
+            <TabsTrigger value="file" className="flex-1 text-xs">File</TabsTrigger>
           </TabsList>
 
           <TabsContent value="magnet">
-            <form onSubmit={submitMagnet} className="space-y-4 pt-3">
-              <div className="space-y-2">
-                <Label htmlFor="magnet">Magnet link</Label>
+            <form onSubmit={submitMagnet} className="flex gap-2">
+              <div className="relative flex-1">
+                <LinkIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  id="magnet"
+                  autoFocus
                   placeholder="magnet:?xt=urn:btih:…"
                   value={magnet}
                   onChange={e => setMagnet(e.target.value)}
+                  className="h-8 pl-8 text-sm"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Adding…' : 'Add magnet'}
+              <Button type="submit" size="sm" disabled={loading || !magnet}>
+                {loading ? 'Adding…' : 'Add'}
               </Button>
             </form>
           </TabsContent>
 
           <TabsContent value="file">
-            <form onSubmit={submitFile} className="space-y-4 pt-3">
+            <form onSubmit={submitFile} className="space-y-2">
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed py-10 text-sm text-muted-foreground transition-colors hover:bg-muted/50"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed py-4 text-xs text-muted-foreground transition-colors hover:bg-muted/50"
               >
-                <Upload className="size-6" />
+                <Upload className="size-4" />
                 {file ? (
-                  <span className="font-medium text-foreground">{file.name}</span>
+                  <span className="truncate font-medium text-foreground">{file.name}</span>
                 ) : (
-                  <span>Click to choose a .torrent file</span>
+                  <span>Choose a .torrent file</span>
                 )}
               </button>
               <input
@@ -115,24 +110,24 @@ export function AddTorrentDialog({ onAddMagnet, onAddFile, loading }: Props) {
                 className="hidden"
                 onChange={e => setFile(e.target.files?.[0] ?? null)}
               />
-              <Button type="submit" className="w-full" disabled={loading || !file}>
+              <Button type="submit" size="sm" className="w-full" disabled={loading || !file}>
                 {loading ? 'Uploading…' : 'Add file'}
               </Button>
             </form>
           </TabsContent>
         </Tabs>
 
-        <div className="border-t pt-3">
+        <div className="border-t pt-2.5">
           <button
             type="button"
             onClick={() => setShowPicker(s => !s)}
-            className="flex w-full items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="flex w-full items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
-            <FolderOpen className="size-4" />
+            <FolderOpen className="size-3.5" />
             <span className="flex-1 truncate text-left">
-              Save to: <span className="font-medium text-foreground">{friendlyPath(path)}</span>
+              Save to <span className="font-medium text-foreground">{friendlyPath(path)}</span>
             </span>
-            <span className="text-xs">{showPicker ? 'Hide' : 'Change'}</span>
+            <span>{showPicker ? 'Hide' : 'Change'}</span>
           </button>
           {showPicker && (
             <div className="mt-2">
