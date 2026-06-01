@@ -1,5 +1,5 @@
 # SixEyes 🚀
-### A hybrid torrent manager built on Java, Python, React and Cloudflare Tunnel
+### A hybrid torrent manager built on Java, Python, React
 
 Manage your torrents remotely from anywhere — no VPN, no port forwarding, no static IP. The whole app runs locally in Docker and is published on your own domain through a single **Cloudflare Tunnel**. The browser talks to a React frontend; an nginx reverse proxy forwards `/api/v1/*` to the Spring Boot middleware, which drives a local Python agent running LibTorrent.
 
