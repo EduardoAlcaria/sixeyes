@@ -19,8 +19,8 @@ export function ActiveDownloads({ torrents }: { torrents: Torrent[] }) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Active downloads</CardTitle>
+      <CardHeader> 
+        <CardTitle>Recent Downloads</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {rows.length === 0 ? (
