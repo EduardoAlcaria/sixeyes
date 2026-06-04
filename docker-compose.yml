@@ -4,8 +4,7 @@ services:
     image: postgres:16-alpine
     container_name: sixeyes-db
     restart: unless-stopped
-    # Internal only — reached by the Java middleware over sixeyes-net.
-    # Not published to the host (avoids clashing with a local Postgres on 5432).
+  
     expose:
       - "5432"
     environment:
@@ -28,8 +27,7 @@ services:
       dockerfile: Dockerfile
     container_name: sixeyes-python
     restart: unless-stopped
-    # No host port published — the Python agent is reachable only by the Java
-    # middleware over the internal docker network (sixeyes-net).
+
     expose:
       - "9999"
     volumes:
@@ -44,7 +42,7 @@ services:
       - HOST_DRIVES=/host/C,/host/D
       - STATE_DIR=/app/state
     healthcheck:
-      # alpine ships busybox wget, not curl; 127.0.0.1 avoids IPv6 ::1 refusal
+   
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9999/python/test || exit 1"]
       interval: 30s
       timeout: 10s
@@ -76,7 +74,7 @@ services:
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
     healthcheck:
-      # eclipse-temurin alpine has busybox wget, not curl; 127.0.0.1 avoids IPv6
+  
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9090/api/v1/torrents/test || exit 1"]
       interval: 30s
       timeout: 10s
@@ -100,9 +98,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: sixeyes-tunnel
     restart: unless-stopped
-    # Locally-managed tunnel: ingress + credentials come from the mounted
-    # ./cloudflared dir (config.yml + <tunnel-id>.json), provisioned via the
-    # cloudflared CLI. No dashboard config and no TUNNEL_TOKEN needed.
+   
     command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
     volumes:
       - ./cloudflared:/etc/cloudflared:ro
