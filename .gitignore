@@ -2,9 +2,9 @@
 downloads/
 .claude/
 
-# Cloudflare tunnel secrets (credentials + origin cert); config.yml is safe
-cloudflared/*.json
-cloudflared/cert.pem
+cloudflared/
+
+docs/
 
 **/target/
 **/.mvn/wrapper/maven-wrapper.jar
@@ -38,6 +38,5 @@ cloudflared/cert.pem
 .DS_Store
 Thumbs.db
 
-# FitGirl scrape artifacts
 fitgirl_az.html
 fitgirl_games.json
