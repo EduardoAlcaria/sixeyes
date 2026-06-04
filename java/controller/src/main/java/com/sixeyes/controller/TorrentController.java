@@ -73,8 +73,6 @@ public class TorrentController {
         return ResponseEntity.ok(Map.of("message", "Torrent removed", "id", id.toString()));
     }
 
-    // --- Host auto-installer ---
-
     @PostMapping("/{id}/install")
     public ResponseEntity<TorrentResponse> install(@PathVariable @Positive Long id) {
         return ResponseEntity.ok(torrentService.requestInstall(id));
