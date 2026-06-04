@@ -53,9 +53,7 @@ public class TorrentSyncService {
         }
     }
 
-    // Self-heal: a DOWNLOADING torrent the engine no longer knows about (lost on
-    // an agent restart / state wipe) is silently dead. Re-add it from its magnet
-    // so the download resumes. Paused/Stopped/Seeding torrents are left alone.
+
     private void reconcileMissing(List<Torrent> active, Set<Long> engineIds) {
         for (Torrent t : active) {
             if (t.getStatus() == TorrentStatus.DOWNLOADING && !engineIds.contains(t.getId())) {
@@ -97,23 +95,6 @@ public class TorrentSyncService {
 
     }
 
-//        if (data.get("progress") instanceof Number n) torrent.setProgress(n.doubleValue());
-//
-//        if (data.get("status") instanceof String s) {
-//            TorrentStatus engineStatus = TorrentStatus.fromValue(s);
-//            if (engineStatus == TorrentStatus.SEEDING && torrent.getStatus() == TorrentStatus.DOWNLOADING) {
-//
-//                torrent.setStatus(TorrentStatus.SEEDING);
-//                torrent.setProgress(100.0);
-//                torrent.setDownloadSpeed("0.00 MB/s");
-//                torrent.setEta(null);
-//
-//            } else if (engineStatus == TorrentStatus.ERROR && torrent.getStatus() == TorrentStatus.DOWNLOADING) {
-//                torrent.setStatus(TorrentStatus.ERROR);
-//            }
-//        }
-//    }
-
     private void handleStatusUpdate(Torrent torrent, String rawStatus) {
         TorrentStatus engineStatus = TorrentStatus.fromValue(rawStatus);
 
@@ -135,7 +116,7 @@ public class TorrentSyncService {
             }
 
             default -> {
-                // ignore other states for now
+
             }
         }
     }
@@ -144,7 +125,7 @@ public class TorrentSyncService {
         return o instanceof String s ? s : null;
     }
 
-    // Engine sends speeds as numbers (MB/s); stringify so formatSpeed can parse them.
+
     private String asSpeedString(Object o) {
         if (o instanceof Number n) return n.toString();
         return o instanceof String s ? s : null;
