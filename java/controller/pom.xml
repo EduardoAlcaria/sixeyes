@@ -14,7 +14,7 @@
     <artifactId>sixeyes</artifactId>
     <version>1.0.0</version>
     <name>sixeyes</name>
-    <description>SixEyes — torrent manager middleware</description>
+    <description>SixEyes - torrent manager middleware</description>
 
     <properties>
         <java.version>21</java.version>
