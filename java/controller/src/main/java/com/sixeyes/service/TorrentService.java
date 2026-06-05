@@ -91,9 +91,7 @@ public class TorrentService {
         return halt(id, TorrentStatus.STOPPED);
     }
 
-    // Pause/stop are best-effort against the engine: if the agent no longer
-    // holds the torrent (e.g. it was lost on a restart), we still record the
-    // requested state so it sticks and the reconcile loop won't revive it.
+    
     private TorrentResponse halt(Long id, TorrentStatus status) {
         Torrent torrent = findOrThrow(id);
         try {
@@ -119,7 +117,7 @@ public class TorrentService {
         try {
             pythonClient.resume(torrent.getId(), torrent.getMagnet());
         } catch (RuntimeException e) {
-            // Engine lost this torrent — re-add it from the magnet to restart.
+
             log.info("Resume: engine missing id={}, re-adding from magnet", id);
             pythonClient.startDownload(torrent.getId(), torrent.getMagnet(), torrent.getSavePath());
         }
@@ -134,8 +132,6 @@ public class TorrentService {
         torrentRepository.deleteById(id);
         log.info("Torrent removed: id={} deleteFiles={}", id, deleteFiles);
     }
-
-    // --- Host auto-installer (manual trigger -> host watcher executes setup.exe) ---
 
     public TorrentResponse requestInstall(Long id) {
         Torrent torrent = findOrThrow(id);
