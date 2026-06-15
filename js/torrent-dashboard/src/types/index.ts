@@ -58,3 +58,20 @@ export interface BrowseResult {
   parent: string | null
   entries: FsEntry[]
 }
+
+export interface CatalogGame {
+  id: number
+  title: string
+  url: string
+  imageUrl: string | null
+  magnet: string | null
+  repackSize: string | null
+}
+
+export interface CatalogPage {
+  content: CatalogGame[]
+  totalElements: number
+  totalPages: number
+  number: number
+  size: number
+}

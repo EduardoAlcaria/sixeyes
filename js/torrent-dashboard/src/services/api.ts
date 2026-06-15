@@ -1,4 +1,4 @@
-import type { BrowseResult, CompletedTorrent, DiskInfo, Settings, SystemInfo, Torrent } from '../types'
+import type { BrowseResult, CatalogGame, CatalogPage, CompletedTorrent, DiskInfo, Settings, SystemInfo, Torrent } from '../types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
@@ -116,4 +116,13 @@ export const settingsApi = {
       method: 'PUT',
       body: JSON.stringify({ downloadPath }),
     }),
+}
+
+export const catalogApi = {
+  search: (q: string, page = 0, size = 24) =>
+    request<CatalogPage>(`/catalog/search?q=${encodeURIComponent(q)}&page=${page}&size=${size}`),
+  game: (url: string) =>
+    request<CatalogGame>(`/catalog/game?url=${encodeURIComponent(url)}`),
+  refresh: () =>
+    request<{ status: string }>('/catalog/refresh', { method: 'POST' }),
 }
