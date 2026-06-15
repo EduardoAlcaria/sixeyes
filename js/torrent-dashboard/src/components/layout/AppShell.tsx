@@ -4,6 +4,7 @@ import {
   Activity,
   CheckCircle2,
   LayoutDashboard,
+  Library,
   ListTree,
   Menu,
   Moon,
@@ -18,6 +19,7 @@ import { useTheme } from '@/providers/ThemeProvider'
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/torrents', label: 'Torrents', icon: ListTree, end: false },
+  { to: '/catalog', label: 'Catalog', icon: Library, end: false },
   { to: '/completed', label: 'Completed', icon: CheckCircle2, end: false },
   { to: '/settings', label: 'Settings', icon: Settings, end: false },
 ]
