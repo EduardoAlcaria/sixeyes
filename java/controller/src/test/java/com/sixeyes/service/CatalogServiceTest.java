@@ -71,9 +71,16 @@ class CatalogServiceTest {
     void getDetails_throwsWhenGameNotFound() {
         when(repo.findByUrl(any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.getDetails("https://unknown.example.com/"))
+        assertThatThrownBy(() -> service.getDetails("https://fitgirl-repacks.site/nonexistent-game/"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("not found");
+    }
+
+    @Test
+    void getDetails_throwsOnNonFitgirlUrl() {
+        assertThatThrownBy(() -> service.getDetails("https://unknown.example.com/"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("fitgirl-repacks.site");
     }
 
     private CatalogGame makeGame(Long id, String title, String url) {

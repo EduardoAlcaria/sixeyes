@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { catalogApi } from '../services/api'
-import type { CatalogGame, CatalogPage } from '../types'
+import type { CatalogPage } from '../types'
 
 export function useCatalog() {
   const [query, setQuery] = useState('')
@@ -39,9 +39,5 @@ export function useCatalog() {
     }
   }, [])
 
-  const fetchGame = useCallback(async (url: string): Promise<CatalogGame> => {
-    return catalogApi.game(url)
-  }, [])
-
-  return { query, setQuery, page, setPage, results, loading, refresh, fetchGame }
+  return { query, setQuery, page, setPage, results, loading, refresh }
 }

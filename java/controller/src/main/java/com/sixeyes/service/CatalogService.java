@@ -25,6 +25,9 @@ public class CatalogService {
     }
 
     public CatalogGameResponse getDetails(String url) {
+        if (!url.startsWith("https://fitgirl-repacks.site/")) {
+            throw new IllegalArgumentException("Invalid game URL: must be a fitgirl-repacks.site URL");
+        }
         CatalogGame game = repo.findByUrl(url)
                 .orElseThrow(() -> new IllegalArgumentException("Game not found: " + url));
 
