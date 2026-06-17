@@ -10,10 +10,7 @@ export function useCatalog() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!query.trim()) {
-      setResults(null)
-      return
-    }
+    const delay = query.trim() ? 400 : 0
     const t = setTimeout(async () => {
       setLoading(true)
       try {
@@ -23,7 +20,7 @@ export function useCatalog() {
       } finally {
         setLoading(false)
       }
-    }, 400)
+    }, delay)
     return () => clearTimeout(t)
   }, [query, page])
 
