@@ -8,6 +8,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -89,6 +90,28 @@ public class CatalogScraperService {
 
     public boolean isRunning() {
         return running.get();
+    }
+
+    @Scheduled(fixedDelay = 30_000, initialDelay = 90_000)
+    public void enrichPending() {
+        if (running.get()) return;
+        List<CatalogGame> pending = repo.findTop5ByMagnetIsNull();
+        if (pending.isEmpty()) return;
+        log.debug("Enriching {} games with magnet links", pending.size());
+        for (CatalogGame game : pending) {
+            try {
+                GameDetail d = fetchAndParseGameDetail(game.getUrl());
+                game.setMagnet(d.magnet() != null ? d.magnet() : "");
+                game.setRepackSize(d.repackSize());
+                repo.save(game);
+                if (delayMs > 0) Thread.sleep(delayMs / 2);
+            } catch (IOException e) {
+                log.warn("Enrich failed for {}: {}", game.getTitle(), e.getMessage());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
     }
 
     List<Map<String, String>> parseListPage(String html) {
