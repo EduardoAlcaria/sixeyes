@@ -12,7 +12,6 @@ export function CatalogPage() {
   const [selected, setSelected] = useState<CatalogGame | null>(null)
 
   const isEmpty = !loading && results !== null && results.content.length === 0
-  const showEmpty = !loading && !results && !query.trim()
 
   return (
     <div className="space-y-4">
@@ -33,23 +32,12 @@ export function CatalogPage() {
         </Button>
       </div>
 
-      {showEmpty && (
-        <p className="text-center text-muted-foreground py-16 text-sm">
-          Search for a game above, or click{' '}
-          <button
-            type="button"
-            onClick={refresh}
-            className="underline underline-offset-2 hover:text-foreground"
-          >
-            refresh
-          </button>{' '}
-          to index the catalog first.
-        </p>
-      )}
-
       {isEmpty && (
         <p className="text-center text-muted-foreground py-16 text-sm">
-          No results for "{query}"
+          {query.trim()
+            ? `No results for "${query}"`
+            : <>Catalog is empty — click <button type="button" onClick={refresh} className="underline underline-offset-2 hover:text-foreground">refresh</button> to index.</>
+          }
         </p>
       )}
 
