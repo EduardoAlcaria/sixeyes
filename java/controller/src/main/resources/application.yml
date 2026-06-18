@@ -33,6 +33,10 @@ settings:
   default-download-path: ${DEFAULT_DOWNLOAD_PATH:/app/downloads}
   min-free-gb: 0.5
 
+igdb:
+  client-id: ${IGDB_CLIENT_ID:}
+  client-secret: ${IGDB_CLIENT_SECRET:}
+
 logging:
   level:
     com.sixeyes: INFO
