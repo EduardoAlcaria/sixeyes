@@ -31,7 +31,8 @@ class CatalogControllerTest {
     void search_returns200WithContent() throws Exception {
         var game = new CatalogGameResponse(1L, "Cyberpunk 2077",
                 "https://fitgirl-repacks.site/cyberpunk-2077/",
-                "https://img.example.com/cover.jpg", "magnet:?xt=urn:btih:ABC", "42 GB");
+                "https://img.example.com/cover.jpg", "magnet:?xt=urn:btih:ABC", "42 GB",
+                null, null, null, null, null, null, null);
         when(service.search(eq("cyber"), eq(0), eq(24)))
                 .thenReturn(new PageImpl<>(List.of(game)));
 
@@ -53,7 +54,8 @@ class CatalogControllerTest {
     void game_returns200WithDetail() throws Exception {
         var game = new CatalogGameResponse(1L, "Elden Ring",
                 "https://fitgirl-repacks.site/elden-ring/",
-                "https://img.example.com/cover.jpg", "magnet:?xt=urn:btih:DEF", "30 GB");
+                "https://img.example.com/cover.jpg", "magnet:?xt=urn:btih:DEF", "30 GB",
+                null, null, null, null, null, null, null);
         when(service.getDetails("https://fitgirl-repacks.site/elden-ring/")).thenReturn(game);
 
         mvc.perform(get("/catalog/game").param("url", "https://fitgirl-repacks.site/elden-ring/"))
