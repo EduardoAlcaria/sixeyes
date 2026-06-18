@@ -66,6 +66,13 @@ export interface CatalogGame {
   imageUrl: string | null
   magnet: string | null
   repackSize: string | null
+  summary: string | null
+  steamPrice: string | null
+  hltbMain: number | null
+  hltbRushed: number | null
+  hltbCompletionist: number | null
+  developers: string | null
+  publishers: string | null
 }
 
 export interface CatalogPage {
