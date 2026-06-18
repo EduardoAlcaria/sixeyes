@@ -18,6 +18,9 @@ public interface CatalogGameRepository extends JpaRepository<CatalogGame, Long> 
 
     List<CatalogGame> findTop5ByMagnetIsNull();
 
+    @Query("SELECT g FROM CatalogGame g WHERE g.igdbEnriched IS NULL OR g.igdbEnriched = false ORDER BY g.id")
+    List<CatalogGame> findPendingIgdbEnrichment(Pageable pageable);
+
     @Query("SELECT g FROM CatalogGame g WHERE LOWER(g.title) LIKE LOWER(CONCAT('%', :q, '%')) ORDER BY g.title")
     Page<CatalogGame> searchByTitle(@Param("q") String q, Pageable pageable);
 }
