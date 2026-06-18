@@ -8,7 +8,14 @@ public record CatalogGameResponse(
         String url,
         String imageUrl,
         String magnet,
-        String repackSize
+        String repackSize,
+        String summary,
+        String steamPrice,
+        Double hltbMain,
+        Double hltbRushed,
+        Double hltbCompletionist,
+        String developers,
+        String publishers
 ) {
     public static CatalogGameResponse from(CatalogGame g) {
         return new CatalogGameResponse(
@@ -17,7 +24,14 @@ public record CatalogGameResponse(
                 g.getUrl(),
                 g.getImageUrl(),
                 g.getMagnet(),
-                g.getRepackSize()
+                g.getRepackSize(),
+                g.getSummary(),
+                g.getSteamPrice(),
+                g.getHltbMain(),
+                g.getHltbRushed(),
+                g.getHltbCompletionist(),
+                g.getDevelopers(),
+                g.getPublishers()
         );
     }
 }
