@@ -99,6 +99,10 @@ public class CatalogScraperService {
         if (pending.isEmpty()) return;
         log.debug("Enriching {} games with magnet links", pending.size());
         for (CatalogGame game : pending) {
+            if (game.getUrl() == null || !game.getUrl().startsWith("https://fitgirl-repacks.site/")) {
+                log.warn("Skipping non-fitgirl url in enrichPending: {}", game.getUrl());
+                continue;
+            }
             try {
                 GameDetail d = fetchAndParseGameDetail(game.getUrl());
                 game.setMagnet(d.magnet() != null ? d.magnet() : "");
