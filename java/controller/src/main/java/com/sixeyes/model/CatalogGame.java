@@ -32,6 +32,33 @@ public class CatalogGame {
     @Column(name = "repack_size")
     private String repackSize;
 
+    @Column(name = "igdb_id")
+    private Integer igdbId;
+
+    @Column(length = 4000)
+    private String summary;
+
+    @Column(name = "steam_price", length = 50)
+    private String steamPrice;
+
+    @Column(name = "hltb_main")
+    private Double hltbMain;
+
+    @Column(name = "hltb_rushed")
+    private Double hltbRushed;
+
+    @Column(name = "hltb_completionist")
+    private Double hltbCompletionist;
+
+    @Column(name = "developers", length = 500)
+    private String developers;
+
+    @Column(name = "publishers", length = 500)
+    private String publishers;
+
+    @Column(name = "igdb_enriched")
+    private Boolean igdbEnriched;
+
     @CreationTimestamp
     @Column(name = "scraped_at", updatable = false)
     private LocalDateTime scrapedAt;
