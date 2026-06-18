@@ -44,12 +44,12 @@ public class IgdbService {
         this.repo = repo;
     }
 
-    @Scheduled(fixedDelay = 60_000, initialDelay = 120_000)
+    @Scheduled(fixedDelay = 10_000, initialDelay = 30_000)
     public void enrichPending() {
         if (clientId.isBlank() || clientSecret.isBlank()) return;
-        List<CatalogGame> pending = repo.findPendingIgdbEnrichment(PageRequest.of(0, 3));
+        List<CatalogGame> pending = repo.findPendingIgdbEnrichment(PageRequest.of(0, 10));
         if (pending.isEmpty()) return;
-        log.debug("IGDB enriching {} games", pending.size());
+        log.info("IGDB enriching {} games", pending.size());
         for (CatalogGame game : pending) {
             game.setIgdbEnriched(true);
             try {
@@ -58,7 +58,7 @@ public class IgdbService {
                 log.warn("IGDB enrichment failed for '{}': {}", game.getTitle(), e.getMessage());
             }
             repo.save(game);
-            try { Thread.sleep(1200); } catch (InterruptedException e) {
+            try { Thread.sleep(400); } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
             }
@@ -69,7 +69,7 @@ public class IgdbService {
         String searchTitle = stripSuffixes(game.getTitle());
         Integer igdbId = findBestMatch(searchTitle);
         if (igdbId == null) {
-            log.debug("No IGDB match for: {}", searchTitle);
+            log.info("No IGDB match for: {}", searchTitle);
             return;
         }
         game.setIgdbId(igdbId);
@@ -210,7 +210,7 @@ public class IgdbService {
         accessToken = (String) resp.getBody().get("access_token");
         Number expiresIn = (Number) resp.getBody().get("expires_in");
         tokenExpiry = Instant.now().plusSeconds(expiresIn != null ? expiresIn.longValue() - 300 : 3600);
-        log.debug("IGDB token refreshed");
+        log.info("IGDB token refreshed, expires ~{}s", expiresIn);
     }
 
     private Double secsToHours(Object secs) {
