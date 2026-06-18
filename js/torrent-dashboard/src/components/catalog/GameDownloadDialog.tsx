@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FolderOpen, Loader2 } from 'lucide-react'
+import { Clock, FolderOpen, Loader2, Tag } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -44,11 +44,13 @@ export function GameDownloadDialog({ game, open, onClose }: Props) {
     }
   }
 
+  const hasHltb = detail && (detail.hltbMain || detail.hltbRushed || detail.hltbCompletionist)
+
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-base line-clamp-2">{game?.title ?? 'Loading…'}</DialogTitle>
+          <DialogTitle className="text-base line-clamp-2 pr-6">{game?.title ?? 'Loading…'}</DialogTitle>
         </DialogHeader>
 
         {!detail ? (
@@ -61,14 +63,59 @@ export function GameDownloadDialog({ game, open, onClose }: Props) {
               <img
                 src={detail.imageUrl}
                 alt={detail.title}
-                className="w-full rounded-lg object-cover max-h-44"
+                className="w-full rounded-lg object-cover max-h-52"
               />
             )}
 
-            {detail.repackSize && (
-              <p className="text-sm text-muted-foreground">
-                Repack size: <span className="font-medium text-foreground">{detail.repackSize}</span>
+            {detail.summary && (
+              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-4">
+                {detail.summary}
               </p>
+            )}
+
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              {detail.repackSize && (
+                <span className="flex items-center gap-1">
+                  <Tag className="size-3" />
+                  <span className="font-medium text-foreground">{detail.repackSize}</span>
+                </span>
+              )}
+              {detail.steamPrice && (
+                <span className="flex items-center gap-1">
+                  Steam:
+                  <span className="font-medium text-foreground">{detail.steamPrice}</span>
+                </span>
+              )}
+            </div>
+
+            {hasHltb && (
+              <div className="rounded-md border px-3 py-2 space-y-1">
+                <p className="text-xs font-medium flex items-center gap-1 text-muted-foreground mb-1.5">
+                  <Clock className="size-3" /> How Long to Beat
+                </p>
+                <div className="grid grid-cols-3 gap-1 text-center">
+                  {detail.hltbMain != null && (
+                    <HltbCell label="Main" hours={detail.hltbMain} />
+                  )}
+                  {detail.hltbRushed != null && (
+                    <HltbCell label="Rushed" hours={detail.hltbRushed} />
+                  )}
+                  {detail.hltbCompletionist != null && (
+                    <HltbCell label="100%" hours={detail.hltbCompletionist} />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {(detail.developers || detail.publishers) && (
+              <div className="text-xs text-muted-foreground space-y-0.5">
+                {detail.developers && (
+                  <p><span className="font-medium text-foreground">Dev:</span> {detail.developers}</p>
+                )}
+                {detail.publishers && (
+                  <p><span className="font-medium text-foreground">Pub:</span> {detail.publishers}</p>
+                )}
+              </div>
             )}
 
             <div className="border-t pt-2.5">
@@ -96,13 +143,23 @@ export function GameDownloadDialog({ game, open, onClose }: Props) {
               disabled={adding || !detail.magnet}
               className="w-full"
             >
-              {adding ? (
-                <><Loader2 className="size-4 animate-spin mr-1.5" /> Starting…</>
-              ) : 'Download'}
+              {adding
+                ? <><Loader2 className="size-4 animate-spin mr-1.5" /> Starting…</>
+                : detail.magnet ? 'Download' : 'No magnet link'
+              }
             </Button>
           </div>
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+function HltbCell({ label, hours }: { label: string; hours: number }) {
+  return (
+    <div className="space-y-0.5">
+      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className="text-sm font-semibold">{hours}h</p>
+    </div>
   )
 }
