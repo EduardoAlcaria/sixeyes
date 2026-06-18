@@ -29,12 +29,11 @@ export function AddTorrentDialog({ onAddMagnet, onAddFile, loading }: Props) {
 
   async function submitMagnet(e: React.FormEvent) {
     e.preventDefault()
-    if (!magnet.startsWith('magnet:')) {
-      toast.error('Enter a valid magnet link (must start with "magnet:")')
+    if (!magnet.trim().startsWith('magnet:')) {
+      toast.error('Must start with "magnet:"')
       return
     }
     await onAddMagnet(magnet.trim(), path ?? undefined)
-    toast.success(`Magnet added → ${friendlyPath(path)}`)
     setMagnet('')
     setOpen(false)
   }
@@ -46,20 +45,16 @@ export function AddTorrentDialog({ onAddMagnet, onAddFile, loading }: Props) {
       return
     }
     await onAddFile(file, path ?? undefined)
-    toast.success(`Added ${file.name} → ${friendlyPath(path)}`)
     setFile(null)
     setOpen(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button>
-            <Plus className="size-4" /> Add torrent
-          </Button>
-        }
-      />
+      <DialogTrigger render={<Button />}>
+        <Plus className="size-4" /> Add torrent
+      </DialogTrigger>
+
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-base">Add a torrent</DialogTitle>
@@ -67,8 +62,12 @@ export function AddTorrentDialog({ onAddMagnet, onAddFile, loading }: Props) {
 
         <Tabs defaultValue="magnet" className="gap-3">
           <TabsList className="h-8 w-full">
-            <TabsTrigger value="magnet" className="flex-1 text-xs">Magnet</TabsTrigger>
-            <TabsTrigger value="file" className="flex-1 text-xs">File</TabsTrigger>
+            <TabsTrigger value="magnet" className="flex-1 text-xs">
+              <LinkIcon className="size-3" /> Magnet
+            </TabsTrigger>
+            <TabsTrigger value="file" className="flex-1 text-xs">
+              <Upload className="size-3" /> File
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="magnet">
@@ -83,7 +82,7 @@ export function AddTorrentDialog({ onAddMagnet, onAddFile, loading }: Props) {
                   className="h-8 pl-8 text-sm"
                 />
               </div>
-              <Button type="submit" size="sm" disabled={loading || !magnet}>
+              <Button type="submit" size="sm" disabled={loading || !magnet.trim()}>
                 {loading ? 'Adding…' : 'Add'}
               </Button>
             </form>
@@ -94,13 +93,13 @@ export function AddTorrentDialog({ onAddMagnet, onAddFile, loading }: Props) {
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed py-4 text-xs text-muted-foreground transition-colors hover:bg-muted/50"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed py-5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:border-primary/40"
               >
                 <Upload className="size-4" />
                 {file ? (
                   <span className="truncate font-medium text-foreground">{file.name}</span>
                 ) : (
-                  <span>Choose a .torrent file</span>
+                  <span>Click to choose a .torrent file</span>
                 )}
               </button>
               <input
@@ -117,23 +116,20 @@ export function AddTorrentDialog({ onAddMagnet, onAddFile, loading }: Props) {
           </TabsContent>
         </Tabs>
 
-        <div className="border-t pt-2.5">
+        {/* Folder picker */}
+        <div className="border-t pt-2.5 space-y-2">
           <button
             type="button"
             onClick={() => setShowPicker(s => !s)}
             className="flex w-full items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
-            <FolderOpen className="size-3.5" />
+            <FolderOpen className="size-3.5 shrink-0" />
             <span className="flex-1 truncate text-left">
               Save to <span className="font-medium text-foreground">{friendlyPath(path)}</span>
             </span>
-            <span>{showPicker ? 'Hide' : 'Change'}</span>
+            <span className="shrink-0">{showPicker ? 'Hide' : 'Change'}</span>
           </button>
-          {showPicker && (
-            <div className="mt-2">
-              <FolderPicker value={path} onChange={setPath} />
-            </div>
-          )}
+          {showPicker && <FolderPicker value={path} onChange={setPath} />}
         </div>
       </DialogContent>
     </Dialog>
