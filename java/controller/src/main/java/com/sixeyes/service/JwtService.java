@@ -43,7 +43,7 @@ public class JwtService {
         try {
             extractUsername(token);
             return true;
-        } catch (JwtException e) {
+        } catch (JwtException | IllegalArgumentException e) {
             log.debug("Invalid JWT: {}", e.getMessage());
             return false;
         }
