@@ -33,8 +33,8 @@ services:
     volumes:
       - ${DOWNLOAD_PATH:-./downloads}:/app/downloads
       - agent-state:/app/state
-      - C:/:/host/C
-      - D:/:/host/D
+      - ${HOST_MOUNT_C:-C:/}:/host/C
+      - ${HOST_MOUNT_D:-D:/}:/host/D
     networks:
       - sixeyes-net
     environment:
