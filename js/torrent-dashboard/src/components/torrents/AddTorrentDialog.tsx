@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import { FolderOpen, LinkIcon, Plus, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { FolderPicker, friendlyPath } from '@/components/torrents/FolderPicker'
+import { FolderPicker } from '@/components/torrents/FolderPicker'
+import { friendlyPath } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,

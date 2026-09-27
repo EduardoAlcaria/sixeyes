@@ -6,13 +6,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { systemApi } from '@/services/api'
 import type { BrowseResult } from '@/types'
-
-// /host/C/Movies -> C:\Movies ; /app/downloads -> friendly default label
-export function friendlyPath(p: string | null): string {
-  if (!p) return 'Default downloads'
-  if (p === '/app/downloads' || p.endsWith('/app/downloads')) return 'Default downloads'
-  return p.replace(/^\/host\/([A-Za-z])/, '$1:').replace(/\//g, '\\')
-}
+import { friendlyPath } from '@/lib/utils'
 
 export function FolderPicker({
   value,

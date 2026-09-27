@@ -13,7 +13,7 @@ export function useAuth() {
       const { token } = await authApi.login(username, password)
       storeToken(token)
       setAuthenticated(true)
-    } catch (e) {
+    } catch {
       setError('Invalid username or password')
     } finally {
       setLoading(false)
