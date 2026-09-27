@@ -51,13 +51,17 @@ public class IgdbService {
         if (pending.isEmpty()) return;
         log.info("IGDB enriching {} games", pending.size());
         for (CatalogGame game : pending) {
-            game.setIgdbEnriched(true);
             try {
                 enrichGame(game);
+                game.setIgdbEnriched(true);
+                repo.save(game);
             } catch (Exception e) {
-                log.warn("IGDB enrichment failed for '{}': {}", game.getTitle(), e.getMessage());
+                // Transient/config failure (bad credentials, IGDB/Twitch down, etc.) —
+                // leave igdbEnriched unset so this game is retried next cycle, instead
+                // of permanently losing its shot at cover art just because the API
+                // call failed once.
+                log.warn("IGDB enrichment failed for '{}', will retry next cycle: {}", game.getTitle(), e.getMessage());
             }
-            repo.save(game);
             try { Thread.sleep(400); } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
