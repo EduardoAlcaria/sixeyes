@@ -87,7 +87,7 @@ Browser ── https://sixeyes.alcaria.dev ──► Cloudflare edge
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Docker Desktop (enable file sharing for `C:\` and `D:\`)
+- Docker Desktop (Windows: enable file sharing for `C:\` and `D:\`)
 - A Cloudflare account with a domain (here: `sixeyes.alcaria.dev`)
 
 ### 1. Clone and configure
@@ -97,6 +97,11 @@ cd sixeyes
 cp .env.example .env
 ```
 Fill in `.env` (DB creds, `JWT_SECRET`, admin creds, `DOWNLOAD_PATH`, and `CF_TUNNEL_TOKEN`).
+
+The Python agent's host-browsing feature mounts two host paths, controlled by
+`HOST_MOUNT_C` / `HOST_MOUNT_D` in `.env`. They default to `C:/` and `D:/`
+(Docker Desktop on Windows). On Linux/macOS, point them at real host
+directories instead, e.g. `HOST_MOUNT_C=/home/you/Downloads`.
 
 ### 2. Set up the Cloudflare Tunnel (one-time)
 1. Cloudflare **Zero Trust → Networks → Tunnels → Create a tunnel** (named, e.g. `sixeyes`).
@@ -135,9 +140,10 @@ Brings up: PostgreSQL → Python agent → Java middleware → nginx frontend �
 
 ## 💥 CI
 
-GitHub Actions runs **build + tests only** (no cloud deploy — deployment is `git pull` + `docker compose up -d --build` on the host):
-- **Backend:** `mvn clean test`
-- **Frontend:** `npm ci` + `npm run build`
+GitHub Actions (`.github/workflows/ci.yml`) runs **build + tests only** (no cloud deploy — deployment is `git pull` + `docker compose up -d --build` on the host):
+- **Backend:** `mvn clean verify` (unit tests + the `RoutingIT` integration test via Failsafe)
+- **Frontend:** `npm ci` + `npm run lint` + `npm run test` + `npm run build`
+- **Python agent:** `pip install -r requirements.txt` + `pytest`
 
 ---
 
