@@ -1,11 +1,16 @@
 package com.sixeyes.service;
 
+import com.sixeyes.model.CatalogGame;
+import com.sixeyes.repo.CatalogGameRepository;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
 
 class CatalogScraperServiceTest {
 
@@ -85,5 +90,30 @@ class CatalogScraperServiceTest {
         assertThat(detail.imageUrl()).isNull();
         assertThat(detail.magnet()).isNull();
         assertThat(detail.repackSize()).isNull();
+    }
+
+    @Test
+    void enrichPending_persistsImageUrlAlongsideMagnetAndSize() throws IOException {
+        CatalogGameRepository repo = mock(CatalogGameRepository.class);
+        CatalogScraperService spyScraper = spy(new CatalogScraperService(repo, 0));
+
+        CatalogGame pending = new CatalogGame();
+        pending.setUrl("https://fitgirl-repacks.site/some-game/");
+        when(repo.findTop5ByMagnetIsNull()).thenReturn(List.of(pending));
+
+        CatalogScraperService.GameDetail detail = new CatalogScraperService.GameDetail(
+                "https://img.example.com/cover.jpg",
+                "magnet:?xt=urn:btih:ABCDEF",
+                "42.3 GB"
+        );
+        doReturn(detail).when(spyScraper).fetchAndParseGameDetail(pending.getUrl());
+
+        spyScraper.enrichPending();
+
+        ArgumentCaptor<CatalogGame> saved = ArgumentCaptor.forClass(CatalogGame.class);
+        verify(repo).save(saved.capture());
+        assertThat(saved.getValue().getImageUrl()).isEqualTo("https://img.example.com/cover.jpg");
+        assertThat(saved.getValue().getMagnet()).isEqualTo("magnet:?xt=urn:btih:ABCDEF");
+        assertThat(saved.getValue().getRepackSize()).isEqualTo("42.3 GB");
     }
 }

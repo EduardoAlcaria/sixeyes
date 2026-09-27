@@ -107,6 +107,7 @@ public class CatalogScraperService {
                 GameDetail d = fetchAndParseGameDetail(game.getUrl());
                 game.setMagnet(d.magnet() != null ? d.magnet() : "");
                 game.setRepackSize(d.repackSize());
+                game.setImageUrl(d.imageUrl());
                 repo.save(game);
                 if (delayMs > 0) Thread.sleep(delayMs / 2);
             } catch (IOException e) {
