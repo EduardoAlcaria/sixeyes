@@ -9,4 +9,14 @@ export default defineConfig({
     alias: { '@': path.resolve(__dirname, './src') },
   },
   server: { port: 5173 },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-is', 'react-router-dom'],
+          'charts-vendor': ['recharts'],
+        },
+      },
+    },
+  },
 })
