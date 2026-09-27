@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Gamepad2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -9,6 +10,8 @@ interface Props {
 }
 
 export function GameCard({ game, onClick }: Props) {
+  const [imgFailed, setImgFailed] = useState(false)
+
   return (
     <button
       type="button"
@@ -17,12 +20,13 @@ export function GameCard({ game, onClick }: Props) {
     >
       <Card className="overflow-hidden transition-all group-hover:ring-2 group-hover:ring-primary/50 group-hover:shadow-md">
         <div className="aspect-[3/4] relative overflow-hidden bg-muted">
-          {game.imageUrl ? (
+          {game.imageUrl && !imgFailed ? (
             <img
               src={game.imageUrl}
               alt={game.title}
               className="object-cover w-full h-full transition-transform group-hover:scale-105"
               loading="lazy"
+              onError={() => setImgFailed(true)}
             />
           ) : (
             <div className="flex items-center justify-center w-full h-full text-muted-foreground">

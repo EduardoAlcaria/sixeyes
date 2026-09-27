@@ -21,8 +21,10 @@ export function GameDownloadDialog({ game, open, onClose }: Props) {
   const [path, setPath] = useState<string | null>(null)
   const [showPicker, setShowPicker] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [imgFailed, setImgFailed] = useState(false)
 
   useEffect(() => {
+    setImgFailed(false)
     if (!open || !game) { setDetail(null); setShowPicker(false); return }
     if (game.magnet) { setDetail(game); return }
     catalogApi.game(game.url)
@@ -58,11 +60,12 @@ export function GameDownloadDialog({ game, open, onClose }: Props) {
           <>
             {/* Cover image or placeholder */}
             <div className="relative w-full bg-muted overflow-hidden rounded-t-xl">
-              {detail.imageUrl ? (
+              {detail.imageUrl && !imgFailed ? (
                 <img
                   src={detail.imageUrl}
                   alt={detail.title}
                   className="w-full object-cover max-h-60"
+                  onError={() => setImgFailed(true)}
                 />
               ) : (
                 <div className="w-full h-36 flex items-center justify-center">
