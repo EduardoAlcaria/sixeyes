@@ -16,22 +16,37 @@ public class SettingsService {
 
     private final SettingsRepository settingsRepository;
 
-    @Value("${settings.default-download-path:/app/downloads}")
+    @Value("${settings.default-download-path:./downloads}")
     private String defaultDownloadPath;
 
-    @Transactional(readOnly = true)
+    @Value("${install.root:}")
+    private String defaultInstallRoot;
+
     public SettingsResponse getSettings() {
-        return SettingsResponse.from(getOrCreate());
+        Settings s = getOrCreate();
+        return new SettingsResponse(s.getDownloadPath(), getInstallPath());
     }
 
     public SettingsResponse updateSettings(UpdateSettingsRequest request) {
         Settings settings = getOrCreate();
-        settings.setDownloadPath(request.downloadPath());
-        return SettingsResponse.from(settingsRepository.save(settings));
+        settings.setDownloadPath(request.downloadPath().trim());
+        settings.setInstallPath(request.installPath() == null || request.installPath().isBlank()
+                ? null : request.installPath().trim());
+        settingsRepository.save(settings);
+        return getSettings();
     }
 
     public String getDownloadPath() {
         return getOrCreate().getDownloadPath();
+    }
+
+    /** Settings value, else the INSTALL_ROOT env default; null when neither is set. */
+    public String getInstallPath() {
+        String saved = getOrCreate().getInstallPath();
+        if (saved != null) {
+            return saved;
+        }
+        return defaultInstallRoot.isBlank() ? null : defaultInstallRoot;
     }
 
     private Settings getOrCreate() {
