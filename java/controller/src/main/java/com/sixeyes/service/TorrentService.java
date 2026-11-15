@@ -10,6 +10,7 @@ import com.sixeyes.exception.InvalidMagnetException;
 import com.sixeyes.exception.TorrentNotFoundException;
 import com.sixeyes.model.Torrent;
 import com.sixeyes.model.TorrentStatus;
+import com.sixeyes.repo.CatalogGameRepository;
 import com.sixeyes.repo.TorrentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 @Slf4j
 @Service
@@ -29,6 +31,27 @@ public class TorrentService {
     private final TorrentRepository torrentRepository;
     private final PythonClientService pythonClient;
     private final SettingsService settingsService;
+    private final CatalogGameRepository catalogRepository;
+    private final HistoryService history;
+    private final EventService events;
+
+    private static final java.util.regex.Pattern BTIH =
+            java.util.regex.Pattern.compile("(?i)xt=urn:btih:([0-9a-f]{40})");
+
+    /** Lowercase hex info hash, or null (base32 hashes are never FitGirl's). */
+    static String infoHash(String magnet) {
+        java.util.regex.Matcher m = BTIH.matcher(magnet == null ? "" : magnet);
+        return m.find() ? m.group(1).toLowerCase(Locale.ROOT) : null;
+    }
+
+    /** Provenance check: this exact torrent was published in a FitGirl post. */
+    public boolean isFitgirlRepack(Torrent t) {
+        if (t.getFitgirl() == null) {
+            String hash = infoHash(t.getMagnet());
+            t.setFitgirl(hash != null && catalogRepository.existsByInfoHash(hash));
+        }
+        return t.getFitgirl();
+    }
 
     @Value("${settings.min-free-gb:0.5}")
     private double minFreeGb;
@@ -38,6 +61,11 @@ public class TorrentService {
     }
 
     public TorrentResponse addTorrent(String magnetLink, String requestedPath) {
+        return addTorrent(magnetLink, requestedPath, null, false, null);
+    }
+
+    public TorrentResponse addTorrent(String magnetLink, String requestedPath, String installPath,
+                                      boolean autoInstall, List<String> skipParts) {
         if (magnetLink == null || !magnetLink.startsWith("magnet:")) {
             throw new InvalidMagnetException(magnetLink);
         }
@@ -45,17 +73,35 @@ public class TorrentService {
             throw new DuplicateMagnetException();
         }
 
-        String downloadPath = (requestedPath != null && !requestedPath.isBlank())
-                ? requestedPath
+        String chosen = (requestedPath != null && !requestedPath.isBlank())
+                ? requestedPath.trim()
                 : settingsService.getDownloadPath();
-        validateStorage(downloadPath);
+        // A relative path means something different to each process; null lets the agent
+        // use its own DOWNLOAD_PATH, which is the folder it is allowed to write to.
+        String downloadPath = chosen != null && java.nio.file.Path.of(chosen).isAbsolute() ? chosen : null;
+        if (downloadPath != null) {
+            validateStorage(downloadPath);
+        }
+
+        List<String> skipped = skipParts == null ? List.of() : skipParts;
 
         Torrent newTorrent = new Torrent(magnetLink);
         newTorrent.setSavePath(downloadPath);
-        Torrent torrent = torrentRepository.save(newTorrent);
-        pythonClient.startDownload(torrent.getId(), torrent.getMagnet(), downloadPath);
+        newTorrent.setInstallPath(installPath != null && !installPath.isBlank() ? installPath.trim() : null);
+        newTorrent.setAutoInstall(autoInstall);
+        newTorrent.setSkipParts(skipped.isEmpty() ? null : String.join("\n", skipped));
+        if (autoInstall && !isFitgirlRepack(newTorrent)) {
+            throw new IllegalArgumentException("Auto-install is only available for FitGirl repacks");
+        }
 
-        log.info("Torrent added: id={} path={}", torrent.getId(), downloadPath);
+        Torrent torrent = torrentRepository.save(newTorrent);
+        pythonClient.startDownload(torrent.getId(), torrent.getMagnet(), downloadPath, skipped);
+        history.added(torrent);
+        events.record("DOWNLOAD_ADDED", com.sixeyes.model.AppEvent.Level.INFO,
+                "Download adicionado" + (autoInstall ? " (instala ao terminar)" : ""), torrent.getId());
+
+        log.info("Torrent added: id={} path={} autoInstall={} skipped={}",
+                torrent.getId(), downloadPath, autoInstall, skipped);
         return TorrentResponse.from(torrent);
     }
 
@@ -68,17 +114,18 @@ public class TorrentService {
         return addTorrent(magnet, requestedPath);
     }
 
-    @Transactional(readOnly = true)
+    /** Not read-only: legacy rows get their FitGirl flag computed and stored once. */
     public List<TorrentResponse> getAllTorrents() {
         return torrentRepository.findAll().stream()
+                .peek(this::isFitgirlRepack)
                 .map(TorrentResponse::from)
                 .toList();
     }
 
-    @Transactional(readOnly = true)
     public List<CompletedTorrentResponse> getCompletedTorrents() {
         return torrentRepository.findAll().stream()
                 .filter(Torrent::isCompleted)
+                .peek(this::isFitgirlRepack)
                 .map(CompletedTorrentResponse::from)
                 .toList();
     }
@@ -119,8 +166,10 @@ public class TorrentService {
         } catch (RuntimeException e) {
 
             log.info("Resume: engine missing id={}, re-adding from magnet", id);
-            pythonClient.startDownload(torrent.getId(), torrent.getMagnet(), torrent.getSavePath());
+            pythonClient.startDownload(torrent.getId(), torrent.getMagnet(), torrent.getSavePath(),
+                    torrent.skipPartList());
         }
+        torrent.setErrorMessage(null);
         torrent.setStatus(torrent.isCompleted() ? TorrentStatus.SEEDING : TorrentStatus.DOWNLOADING);
         log.info("Torrent resumed: id={}", id);
         return TorrentResponse.from(torrentRepository.save(torrent));
@@ -129,12 +178,25 @@ public class TorrentService {
     public void removeTorrent(Long id, boolean deleteFiles) {
         Torrent torrent = findOrThrow(id);
         pythonClient.remove(torrent.getId(), torrent.getMagnet(), deleteFiles);
+        history.removed(torrent);
         torrentRepository.deleteById(id);
+        events.record("DOWNLOAD_REMOVED", com.sixeyes.model.AppEvent.Level.INFO,
+                "Removido: " + name(torrent) + (deleteFiles ? " (arquivos apagados)" : ""), id);
         log.info("Torrent removed: id={} deleteFiles={}", id, deleteFiles);
     }
 
     public TorrentResponse requestInstall(Long id) {
         Torrent torrent = findOrThrow(id);
+        if (!isFitgirlRepack(torrent)) {
+            throw new IllegalArgumentException("Only FitGirl repacks from the catalog can be installed");
+        }
+        if (!torrent.isCompleted()) {
+            throw new IllegalArgumentException("Download is not finished yet");
+        }
+        if ("VERIFYING".equals(torrent.getInstallStatus())
+                || "INSTALLING".equals(torrent.getInstallStatus())) {
+            throw new IllegalArgumentException("Install already in progress");
+        }
         torrent.setInstallStatus("REQUESTED");
         torrent.setInstallMessage(null);
         log.info("Install requested: id={} path={}", id, torrent.getSavePath());
@@ -151,8 +213,11 @@ public class TorrentService {
 
     @Transactional(readOnly = true)
     public List<InstallJob> getInstallQueue() {
+        String defaultInstall = settingsService.getInstallPath();
         return torrentRepository.findByInstallStatus("REQUESTED").stream()
-                .map(t -> new InstallJob(t.getId(), t.getTitle(), t.getSavePath()))
+                .map(t -> new InstallJob(t.getId(), t.getTitle(), t.getSavePath(),
+                        t.getInstallPath() != null ? t.getInstallPath() : defaultInstall,
+                        isFitgirlRepack(t)))
                 .toList();
     }
 
@@ -161,7 +226,47 @@ public class TorrentService {
         torrent.setInstallStatus(status);
         torrent.setInstallMessage(message);
         torrentRepository.save(torrent);
+        history.installStatus(torrent, status, message);
         log.info("Install status: id={} status={} msg={}", id, status, message);
+        switch (status) {
+            case "VERIFYING" -> events.record("INSTALL_VERIFYING", com.sixeyes.model.AppEvent.Level.INFO,
+                    "Verificando arquivos: " + name(torrent), id);
+            case "INSTALLED" -> events.record("INSTALL_OK", com.sixeyes.model.AppEvent.Level.OK,
+                    "Instalado: " + name(torrent), id);
+            case "FAILED" -> events.record("INSTALL_FAILED", com.sixeyes.model.AppEvent.Level.ERROR,
+                    "Falha ao instalar " + name(torrent) + ": " + message, id);
+            default -> { }
+        }
+    }
+
+    /** Detail view: our record, the engine's live deep stats, the catalog entry and history. */
+    public java.util.Map<String, Object> details(Long id) {
+        Torrent t = findOrThrow(id);
+        java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("torrent", TorrentResponse.from(t));
+        try {
+            out.put("engine", pythonClient.getJson("/python/details/" + id, null));
+        } catch (RuntimeException e) {
+            // Paused after a restart, or the engine is down: the rest still renders.
+            out.put("engine", null);
+        }
+        String hash = infoHash(t.getMagnet());
+        out.put("catalog", hash == null ? null
+                : catalogRepository.findByInfoHash(hash).stream().findFirst()
+                        .map(com.sixeyes.dto.response.CatalogGameResponse::from).orElse(null));
+        out.put("history", history.find(id).orElse(null));
+        return out;
+    }
+
+    /** The installer finished cleanly: remember where the game now lives. */
+    public void markInstalled(Long id, String installedDir) {
+        Torrent torrent = findOrThrow(id);
+        torrent.setInstalledDir(installedDir);
+        torrentRepository.save(torrent);
+    }
+
+    static String name(Torrent t) {
+        return t.getTitle() != null ? t.getTitle() : "torrent #" + t.getId();
     }
 
     private void validateStorage(String downloadPath) {
@@ -188,7 +293,9 @@ public class TorrentService {
 
         try {
             double mbps = Double.parseDouble(raw.replace("MB/s", "").trim());
-            return String.format("%.2f MB/s", mbps);
+            // Locale.US: a pt-BR default renders "1,50", which Torrent.formatSpeed then
+            // fails to parse and silently zeroes.
+            return String.format(Locale.US, "%.2f MB/s", mbps);
 
         } catch (NumberFormatException e) {
             return "0.00 MB/s";
