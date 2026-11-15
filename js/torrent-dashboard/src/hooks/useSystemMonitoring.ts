@@ -28,6 +28,8 @@ function loadHistory(): NetworkDataPoint[] {
 // History is also mirrored to localStorage so a full page reload keeps the graph.
 let system: SystemInfo = DEFAULT_SYSTEM
 let history: NetworkDataPoint[] = loadHistory()
+// null until the first poll answers; drives the header's connection dot.
+let online: boolean | null = null
 let started = false
 const listeners = new Set<() => void>()
 
@@ -36,9 +38,12 @@ function emit() {
 }
 
 async function poll() {
+  // No mounted consumer (e.g. signed out): don't keep hitting the API every 5s.
+  if (listeners.size === 0) return
   try {
     const data = await systemApi.getInfo()
     system = data
+    online = true
     const time = new Date().toLocaleTimeString('en-US', {
       hour12: false,
       hour: '2-digit',
@@ -52,11 +57,13 @@ async function poll() {
     try {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
     } catch {
-      // storage full / unavailable — graph still works in-memory
+      // storage full / unavailable - graph still works in-memory
     }
     emit()
   } catch {
-    // non-critical — keep previous values
+    // Keep the last values for the charts, but say the backend stopped answering.
+    online = false
+    emit()
   }
 }
 
@@ -76,5 +83,5 @@ export function useSystemMonitoring() {
       listeners.delete(force)
     }
   }, [])
-  return { system, history }
+  return { system, history, online }
 }
