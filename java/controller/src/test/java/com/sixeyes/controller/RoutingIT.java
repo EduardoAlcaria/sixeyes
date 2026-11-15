@@ -8,7 +8,6 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,14 +17,19 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Verifies that every backend route is served under the {@code /api/v1} context-path
- * and that Spring Security rules still apply after the context-path is stripped.
+ * Verifies every backend route is served under {@code /api/v1} and that Spring Security
+ * still applies.
  *
- * <p>Uses {@code RANDOM_PORT} + {@link TestRestTemplate} so requests go through the real
- * embedded Tomcat, which honours {@code server.servlet.context-path} (standalone MockMvc
- * does not), making these assertions exercise the true runtime routes.
+ * <p>The prefix now comes from {@code WebConfig.configurePathMatch} rather than
+ * {@code server.servlet.context-path}, because the context path would have dragged the
+ * static SPA under {@code /api/v1} too. Same external URLs, different mechanism - which is
+ * exactly why these assertions are worth keeping.
+ *
+ * <p>{@code RANDOM_PORT} + {@link TestRestTemplate} so requests traverse the real embedded
+ * Tomcat and the true runtime routes.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "admin.password=test-pass")
 @ActiveProfiles("dev")
 class RoutingIT {
 
@@ -64,13 +68,15 @@ class RoutingIT {
     @Test
     void torrentsListRequiresAuth() {
         ResponseEntity<String> response = rest.getForEntity(url("/api/v1/torrents/get"), String.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        // 401, not 403: there is no session at all, so this is an authentication failure.
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     @Test
-    void rootPathIsNotMapped() {
-        // Without the /api/v1 prefix the endpoint must not resolve.
+    void apiIsNotReachableWithoutThePrefix() {
+        // Non-API paths belong to the SPA now, so this may 404 (no build present) or serve
+        // index.html (build present). What it must never do is answer as the API.
         ResponseEntity<String> response = rest.getForEntity(url("/torrents/test"), String.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).doesNotContain("\"service\"");
     }
 }
