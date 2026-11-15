@@ -18,4 +18,8 @@ public class Settings {
 
     @Column(name = "download_path", nullable = false)
     private String downloadPath;
+
+    /** Default folder games are installed into; null falls back to install.root. */
+    @Column(name = "install_path", length = 4000)
+    private String installPath;
 }
