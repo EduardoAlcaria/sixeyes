@@ -33,7 +33,7 @@ public class SystemInfoService {
         double totalBytes = raw.containsKey("Total")
                 ? toDouble(raw.get("Total"))
                 : usedBytes + freeBytes;
-
+        
         String device = raw.get("Device") != null ? raw.get("Device").toString() : "downloads";
 
         StorageInfo storage = new StorageInfo(
@@ -82,7 +82,7 @@ public class SystemInfoService {
         return Math.round(value * 10.0) / 10.0;
     }
 
-    private static double parseSpeed(String speed) {
+    static double parseSpeed(String speed) {
 
         if (speed == null || speed.isBlank()){
             return 0.0;
