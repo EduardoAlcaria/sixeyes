@@ -1,30 +1,28 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { torrentApi } from '../services/api'
 import type { CompletedTorrent, Torrent } from '../types'
 
 const POLL_MS = 5_000
 
+// Toast id = message, so a backend outage shows one toast instead of one per poll.
+function showError(e: unknown) {
+  const msg = e instanceof Error ? e.message : 'Request failed'
+  toast.error(msg, { id: msg })
+}
+
 export function useTorrents() {
   const [torrents, setTorrents] = useState<Torrent[]>([])
   const [completed, setCompleted] = useState<CompletedTorrent[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const showError = useCallback((msg: string) => {
-    setError(msg)
-    if (errorTimer.current) clearTimeout(errorTimer.current)
-    errorTimer.current = setTimeout(() => setError(null), 5_000)
-  }, [])
 
   const fetchTorrents = useCallback(async () => {
     try {
-      const data = await torrentApi.getAll()
-      setTorrents(data)
+      setTorrents(await torrentApi.getAll())
     } catch (e) {
-      showError((e as Error).message)
+      showError(e)
     }
-  }, [showError])
+  }, [])
 
   const fetchCompleted = useCallback(async () => {
     try {
@@ -41,93 +39,68 @@ export function useTorrents() {
     return () => clearInterval(id)
   }, [fetchTorrents, fetchCompleted])
 
+  /** Runs an action, reports failure, and resolves to whether it succeeded. */
+  const run = useCallback(async (action: () => Promise<unknown>): Promise<boolean> => {
+    try {
+      await action()
+      return true
+    } catch (e) {
+      showError(e)
+      return false
+    }
+  }, [])
+
   const addTorrent = useCallback(async (magnet: string, downloadPath?: string) => {
     setLoading(true)
-    try {
-      await torrentApi.add(magnet, downloadPath)
-      await fetchTorrents()
-      setError(null)
-    } catch (e) {
-      showError((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }, [fetchTorrents, showError])
+    const ok = await run(() => torrentApi.add(magnet, { downloadPath }))
+    if (ok) await fetchTorrents()
+    setLoading(false)
+    return ok
+  }, [run, fetchTorrents])
 
   const addTorrentFile = useCallback(async (file: File, downloadPath?: string) => {
     setLoading(true)
-    try {
-      await torrentApi.addFile(file, downloadPath)
-      await fetchTorrents()
-      setError(null)
-    } catch (e) {
-      showError((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }, [fetchTorrents, showError])
+    const ok = await run(() => torrentApi.addFile(file, downloadPath))
+    if (ok) await fetchTorrents()
+    setLoading(false)
+    return ok
+  }, [run, fetchTorrents])
 
-  const pauseTorrent = useCallback(async (id: number) => {
-    try {
-      const updated = await torrentApi.pause(id)
-      setTorrents(prev => prev.map(t => (t.id === id ? updated : t)))
-    } catch (e) {
-      showError((e as Error).message)
-    }
-  }, [showError])
+  const replace = useCallback((updated: Torrent) =>
+    setTorrents(prev => prev.map(t => (t.id === updated.id ? updated : t))), [])
 
-  const stopTorrent = useCallback(async (id: number) => {
-    try {
-      const updated = await torrentApi.stop(id)
-      setTorrents(prev => prev.map(t => (t.id === id ? updated : t)))
-    } catch (e) {
-      showError((e as Error).message)
-    }
-  }, [showError])
+  const pauseTorrent = useCallback((id: number) =>
+    run(async () => replace(await torrentApi.pause(id))), [run, replace])
 
-  const resumeTorrent = useCallback(async (id: number) => {
-    try {
-      const updated = await torrentApi.resume(id)
-      setTorrents(prev => prev.map(t => (t.id === id ? updated : t)))
-    } catch (e) {
-      showError((e as Error).message)
-    }
-  }, [showError])
+  const stopTorrent = useCallback((id: number) =>
+    run(async () => replace(await torrentApi.stop(id))), [run, replace])
+
+  const resumeTorrent = useCallback((id: number) =>
+    run(async () => replace(await torrentApi.resume(id))), [run, replace])
 
   const installGame = useCallback(async (id: number) => {
-    try {
-      await torrentApi.install(id)
-      await Promise.all([fetchTorrents(), fetchCompleted()])
-    } catch (e) {
-      showError((e as Error).message)
-    }
-  }, [fetchTorrents, fetchCompleted, showError])
+    const ok = await run(() => torrentApi.install(id))
+    await Promise.all([fetchTorrents(), fetchCompleted()])
+    return ok
+  }, [run, fetchTorrents, fetchCompleted])
 
   const cancelInstall = useCallback(async (id: number) => {
-    try {
-      await torrentApi.cancelInstall(id)
-      await Promise.all([fetchTorrents(), fetchCompleted()])
-    } catch (e) {
-      showError((e as Error).message)
-    }
-  }, [fetchTorrents, fetchCompleted, showError])
+    const ok = await run(() => torrentApi.cancelInstall(id))
+    await Promise.all([fetchTorrents(), fetchCompleted()])
+    return ok
+  }, [run, fetchTorrents, fetchCompleted])
 
   const removeTorrent = useCallback(async (id: number, deleteFiles = false) => {
-    let prev: Torrent[] = []
-    setTorrents(p => { prev = p; return p.filter(t => t.id !== id) }) // optimistic
-    try {
-      await torrentApi.remove(id, deleteFiles)
-    } catch (e) {
-      setTorrents(prev) // rollback
-      showError((e as Error).message)
-    }
-  }, [showError])
+    setTorrents(p => p.filter(t => t.id !== id)) // optimistic
+    const ok = await run(() => torrentApi.remove(id, deleteFiles))
+    if (!ok) await fetchTorrents() // restore from the server, not a stale snapshot
+    return ok
+  }, [run, fetchTorrents])
 
   return {
     torrents,
     completed,
     loading,
-    error,
     addTorrent,
     addTorrentFile,
     pauseTorrent,
@@ -137,4 +110,15 @@ export function useTorrents() {
     installGame,
     cancelInstall,
   }
+}
+
+export type TorrentsState = ReturnType<typeof useTorrents>
+
+/** One poll for the whole signed-in app: the shell provides it, pages read it. */
+export const TorrentsContext = createContext<TorrentsState | null>(null)
+
+export function useSharedTorrents(): TorrentsState {
+  const ctx = useContext(TorrentsContext)
+  if (!ctx) throw new Error('useSharedTorrents needs the DeckShell provider')
+  return ctx
 }
