@@ -8,30 +8,74 @@ spring:
     properties:
       hibernate:
         format_sql: false
+  # Default scheduler has one thread: a 2h install would freeze torrent sync with it.
+  task:
+    scheduling:
+      pool:
+        size: 4
 
 server:
-  port: 9090
-  servlet:
-    context-path: /api/v1
+  # Loopback only: the sole route in from outside is the Cloudflare tunnel, which
+  # runs on this machine. Set 0.0.0.0 to also allow direct LAN access.
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: ${SERVER_PORT:9123}
+
+# API routes are prefixed in WebConfig rather than by server.servlet.context-path,
+# so the SPA can be served from the root of the same origin.
+api:
+  prefix: /api/v1
 
 python:
   service:
     url: ${PYTHON_SERVICE_URL:http://localhost:9999}
 
+# Shared secret for calling the Python agent. The agent binds to loopback, where any
+# local process could otherwise drive filesystem browse/mkdir with no credentials.
+agent:
+  key: ${AGENT_KEY:}
+
 sync:
   interval-ms: 3000
 
-jwt:
-  secret: ${JWT_SECRET:c2l4ZXllcy1sb2NhbC1kZXZlbG9wbWVudC1zZWNyZXQtZG8tbm90LXVzZS1pbi1wcm9kdWN0aW9u}
-  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+session:
+  cookie-name: sixeyes_session
+  # Secure cookies are not sent over plain http://localhost. Left on by default
+  # because the real entry point is the HTTPS tunnel; the local profile turns it off.
+  cookie-secure: ${SESSION_COOKIE_SECURE:true}
+  idle-timeout-minutes: ${SESSION_IDLE_MINUTES:1440}
+  absolute-timeout-days: ${SESSION_ABSOLUTE_DAYS:30}
+
+cloudflare:
+  access:
+    # Only meaningful if server.address is widened past loopback - while the origin
+    # is loopback-bound, anything able to reach it is already on the machine.
+    require-assertion: ${CF_ACCESS_REQUIRE_ASSERTION:false}
 
 admin:
   username: ${ADMIN_USERNAME:admin}
   password: ${ADMIN_PASSWORD:admin}
 
 settings:
-  default-download-path: ${DEFAULT_DOWNLOAD_PATH:/app/downloads}
+  default-download-path: ${DEFAULT_DOWNLOAD_PATH:./downloads}
   min-free-gb: 0.5
+
+# Auto-install replaces scripts/auto-install.ps1. The only code-execution path in the
+# app: it runs an installer found inside a directory this app downloaded, and nowhere
+# else. Leave install.root blank to keep requests queued and execute nothing.
+install:
+  enabled: ${INSTALL_ENABLED:true}
+  root: ${INSTALL_ROOT:}
+  poll-ms: ${INSTALL_POLL_MS:15000}
+  timeout-minutes: ${INSTALL_TIMEOUT_MINUTES:120}
+  # Command-line template for the repack installer's "limit installer to X GB of RAM
+  # usage" option; {gb} is replaced with the chosen number. Blank by default because the
+  # real switch is not confirmed - InnoSetup keeps its script compressed inside setup.exe.
+  # While blank, a requested limit is logged as a warning instead of guessed at.
+  ram-limit-flag: ${INSTALL_RAM_LIMIT_FLAG:}
+  # FitGirl setups require admin. Name of the elevated task registered by
+  # scripts/register-installer.ps1; blank runs setup directly (fails on admin setups).
+  elevated-task: ${INSTALL_ELEVATED_TASK:}
+  job-file: ${INSTALL_JOB_FILE:data/install-job.json}
 
 igdb:
   client-id: ${IGDB_CLIENT_ID:}
