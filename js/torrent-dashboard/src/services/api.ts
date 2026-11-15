@@ -1,81 +1,131 @@
-import type { BrowseResult, CatalogGame, CatalogPage, CompletedTorrent, DiskInfo, Settings, SystemInfo, Torrent } from '../types'
+import type {
+  ActivityDay, AppEvent, BrowseResult, CatalogGame, CatalogPage, CompletedTorrent, DiskInfo,
+  GameLibrary, Genre, HistoryEntry, MetricsSummary, NetRange, NetSeries, PeerMap, Settings,
+  SystemInfo, Torrent, TorrentDetails, Vitals,
+} from '../types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
-function getToken(): string | null {
-  return localStorage.getItem('token')
+const DEVICE_KEY = 'sixeyes.deviceId'
+
+export interface Me {
+  username: string
 }
 
-function isTokenExpired(token: string): boolean {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    return payload.exp * 1000 < Date.now()
-  } catch {
-    return true
+export interface Device {
+  id: number
+  label: string
+  status: 'PENDING' | 'TRUSTED'
+  createdAt: string
+  lastSeenAt: string | null
+  /** This browser - removing it signs you out here. */
+  current: boolean
+}
+
+/** Thrown when the password was right but this browser has not been approved yet. */
+export class PendingApprovalError extends Error {}
+
+export interface AddOptions {
+  downloadPath?: string
+  installPath?: string
+  autoInstall?: boolean
+  /** FitGirl fg-optional-* part names to skip entirely. */
+  skipParts?: string[]
+}
+
+/**
+ * A random 256-bit identifier for this browser, generated once and kept locally. It is
+ * the second factor at login: the password alone is not enough on a device you have not
+ * approved. Not a MAC address - those never survive routing to the server.
+ */
+function deviceId(): string {
+  let id = localStorage.getItem(DEVICE_KEY)
+  if (!id) {
+    const bytes = crypto.getRandomValues(new Uint8Array(32))
+    id = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    localStorage.setItem(DEVICE_KEY, id)
   }
+  return id
 }
 
-export function isAuthenticated(): boolean {
-  const token = getToken()
-  return token !== null && !isTokenExpired(token)
-}
+// The session cookie is httpOnly, so nothing here can read it. Whether we are signed in
+// is a question only the server can answer - see authApi.me().
+let onUnauthorized: (() => void) | null = null
 
-export function clearToken(): void {
-  localStorage.removeItem('token')
-}
-
-export function storeToken(token: string): void {
-  localStorage.setItem('token', token)
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getToken()
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) headers['Authorization'] = `Bearer ${token}`
+  // The device id rides along so the server can tell which listed device is this one.
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-SixEyes-Device-Id': deviceId(),
+  }
 
-  const res = await fetch(`${BASE_URL}${path}`, { headers, ...init })
+  const res = await fetch(`${BASE_URL}${path}`, { credentials: 'same-origin', headers, ...init })
 
   if (res.status === 401) {
-    const hadToken = !!getToken()
-    clearToken()
-    if (hadToken) window.location.reload()
-    throw new Error('Session expired')
+    onUnauthorized?.()
+    throw new Error('Not authenticated')
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new Error((body as { message?: string }).message ?? `HTTP ${res.status}`)
   }
+  if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
 
 export const authApi = {
-  login: (username: string, password: string) =>
-    request<{ token: string }>('/auth/login', {
+  login: async (username: string, password: string): Promise<Me> => {
+    const res = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-SixEyes-Device-Id': deviceId() },
       body: JSON.stringify({ username, password }),
-    }),
+    })
+    if (res.ok) return res.json() as Promise<Me>
+
+    const body = (await res.json().catch(() => ({}))) as { code?: string; message?: string }
+    if (res.status === 403 && body.code === 'PENDING_APPROVAL') {
+      throw new PendingApprovalError(body.message ?? 'This device is awaiting approval.')
+    }
+    if (res.status === 401) throw new Error('Invalid username or password')
+    throw new Error(body.message ?? `HTTP ${res.status}`)
+  },
+  me: () => request<Me>('/auth/me'),
+  logout: () => request<void>('/auth/logout', { method: 'POST' }),
+  logoutAll: () => request<{ revoked: number }>('/auth/logout-all', { method: 'POST' }),
+  devices: () => request<Device[]>('/auth/devices'),
+  approveDevice: (id: number) => request<Device>(`/auth/devices/${id}/approve`, { method: 'POST' }),
+  removeDevice: (id: number) => request<{ revokedSessions: number }>(`/auth/devices/${id}`, { method: 'DELETE' }),
 }
 
 export const torrentApi = {
-  add: (magnet: string, downloadPath?: string) =>
+  add: (magnet: string, opts: AddOptions = {}) =>
     request<Torrent>('/torrents/add', {
       method: 'POST',
-      body: JSON.stringify({ magnet, downloadPath: downloadPath ?? null }),
+      body: JSON.stringify({
+        magnet,
+        downloadPath: opts.downloadPath ?? null,
+        installPath: opts.installPath ?? null,
+        autoInstall: opts.autoInstall ?? false,
+        skipParts: opts.skipParts ?? [],
+      }),
     }),
   addFile: async (file: File, downloadPath?: string): Promise<Torrent> => {
-    const token = getToken()
     const form = new FormData()
     form.append('file', file)
     if (downloadPath) form.append('downloadPath', downloadPath)
     const res = await fetch(`${BASE_URL}/torrents/addFile`, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: form, // no Content-Type — browser sets the multipart boundary
+      credentials: 'same-origin',
+      body: form, // no Content-Type - browser sets the multipart boundary
     })
     if (res.status === 401) {
-      clearToken()
-      window.location.reload()
-      throw new Error('Session expired')
+      onUnauthorized?.()
+      throw new Error('Not authenticated')
     }
     if (!res.ok) {
       const b = await res.json().catch(() => ({}))
@@ -93,6 +143,7 @@ export const torrentApi = {
       `/torrents/${id}/removeTorrent?deleteFiles=${deleteFiles}`,
       { method: 'DELETE' },
     ),
+  details: (id: number) => request<TorrentDetails>(`/torrents/${id}/details`),
   install: (id: number) => request<Torrent>(`/torrents/${id}/install`, { method: 'POST' }),
   cancelInstall: (id: number) => request<Torrent>(`/torrents/${id}/install`, { method: 'DELETE' }),
 }
@@ -111,11 +162,25 @@ export const systemApi = {
 
 export const settingsApi = {
   get: () => request<Settings>('/settings'),
-  update: (downloadPath: string) =>
+  update: (s: Settings) =>
     request<Settings>('/settings', {
       method: 'PUT',
-      body: JSON.stringify({ downloadPath }),
+      body: JSON.stringify(s),
     }),
+}
+
+export const insightApi = {
+  network: (range: NetRange) => request<NetSeries>(`/metrics/network?range=${range}`),
+  activity: (days = 182) => request<ActivityDay[]>(`/metrics/activity?days=${days}`),
+  summary: () => request<MetricsSummary>('/metrics/summary'),
+  events: (limit = 50) => request<AppEvent[]>(`/events?limit=${limit}`),
+  history: () => request<HistoryEntry[]>('/history'),
+  peers: (torrentId?: number) => request<PeerMap>(`/peers${torrentId ? `?torrentId=${torrentId}` : ''}`),
+  vitals: () => request<Vitals>('/system/vitals'),
+  games: () => request<GameLibrary>('/games'),
+  genres: () => request<Genre[]>('/games/genres'),
+  launch: (key: string) =>
+    request<{ status: string }>('/games/launch', { method: 'POST', body: JSON.stringify({ key }) }),
 }
 
 export const catalogApi = {
