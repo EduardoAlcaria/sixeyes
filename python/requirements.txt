@@ -1,5 +1,10 @@
-libtorrent
+# libtorrent is C++ parsing hostile input from arbitrary peers - the largest attack
+# surface in the app. Pinned deliberately; review and bump on a schedule.
+# No cp314 wheel exists yet, so the venv must be Python 3.13 or older.
+libtorrent==2.0.13
 fastapi
 python-multipart
 uvicorn[standard]
 psutil
+# Reads the local DB-IP country database for the peer map (scripts/geoip-update.ps1).
+maxminddb
