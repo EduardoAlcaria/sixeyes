@@ -14,8 +14,8 @@ import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface Props {
-  onAddMagnet: (magnet: string, downloadPath?: string) => Promise<void> | void
-  onAddFile: (file: File, downloadPath?: string) => Promise<void> | void
+  onAddMagnet: (magnet: string, downloadPath?: string) => Promise<boolean>
+  onAddFile: (file: File, downloadPath?: string) => Promise<boolean>
   loading: boolean
 }
 
@@ -33,7 +33,8 @@ export function AddTorrentDialog({ onAddMagnet, onAddFile, loading }: Props) {
       toast.error('Must start with "magnet:"')
       return
     }
-    await onAddMagnet(magnet.trim(), path ?? undefined)
+    // Keep the dialog and the input on failure so the user can fix and retry.
+    if (!(await onAddMagnet(magnet.trim(), path ?? undefined))) return
     setMagnet('')
     setOpen(false)
   }
@@ -44,7 +45,7 @@ export function AddTorrentDialog({ onAddMagnet, onAddFile, loading }: Props) {
       toast.error('Choose a .torrent file first')
       return
     }
-    await onAddFile(file, path ?? undefined)
+    if (!(await onAddFile(file, path ?? undefined))) return
     setFile(null)
     setOpen(false)
   }
