@@ -6,12 +6,12 @@ import com.sixeyes.exception.InvalidMagnetException;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -24,15 +24,20 @@ import java.util.Map;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class PythonClientService {
 
     private final RestTemplate restTemplate;
 
+    public PythonClientService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+
     @Value("${python.service.url}")
     private String pythonUrl;
 
-    private record StartDownloadBody(long id, String magnet, @JsonProperty("downloadPath") String downloadPath
+    private record StartDownloadBody(long id, String magnet,
+                                     @JsonProperty("downloadPath") String downloadPath,
+                                     @JsonProperty("skipParts") List<String> skipParts
     ) {}
 
     private record TorrentIdBody(long id, String magnet) {}
@@ -41,7 +46,14 @@ public class PythonClientService {
     private record MkdirBody(String parent, String name) {}
 
     public void startDownload(Long id, String magnet, String downloadPath) {
-        exchange("/python/add", HttpMethod.POST, new StartDownloadBody(id, magnet, downloadPath));
+        startDownload(id, magnet, downloadPath, List.of());
+    }
+
+    public void startDownload(Long id, String magnet, String downloadPath,
+                              List<String> skipParts) {
+        exchange("/python/add", HttpMethod.POST,
+                new StartDownloadBody(id, magnet, downloadPath,
+                        skipParts == null ? List.of() : skipParts));
     }
 
     public String magnetFromFile(byte[] torrentBytes, String filename) {
@@ -196,6 +208,31 @@ public class PythonClientService {
         }
     }
 
+    /** GET returning the agent's JSON as-is (Map or List) - for read-only passthroughs. */
+    public Object getJson(String path, Map<String, ?> query) {
+        UriComponentsBuilder b = UriComponentsBuilder.fromUriString(url(path));
+        if (query != null) {
+            query.forEach((k, v) -> {
+                if (v != null) b.queryParam(k, v);
+            });
+        }
+        try {
+            return restTemplate.exchange(b.build().encode().toUri(), HttpMethod.GET,
+                    jsonEntity(null), Object.class).getBody();
+        } catch (RestClientException e) {
+            throw engineException("GET " + path, e);
+        }
+    }
+
+    public Object postJson(String path, Object body) {
+        try {
+            return restTemplate.exchange(url(path), HttpMethod.POST, jsonEntity(body),
+                    Object.class).getBody();
+        } catch (RestClientException e) {
+            throw engineException("POST " + path, e);
+        }
+    }
+
     private <T> void exchange(String path, HttpMethod method, T body) {
         try {
 
@@ -221,6 +258,16 @@ public class PythonClientService {
     }
 
     private RuntimeException engineException(String operation, RestClientException cause) {
+
+        // The agent rejecting a request (bad path, unreadable torrent) is the caller's
+        // fault and should surface as a 400 with its reason, not a generic 500.
+        if (cause instanceof HttpClientErrorException clientError) {
+            Map<?, ?> body = clientError.getResponseBodyAs(Map.class);
+            Object detail = body == null ? null : body.get("detail");
+            log.warn("Python engine rejected [{}]: {}", operation, detail);
+            return new IllegalArgumentException(
+                    detail != null ? detail.toString() : "Engine rejected " + operation);
+        }
 
         log.error("Python engine call failed [{}]: {}", operation, cause.getMessage());
         return new RuntimeException("Python engine unavailable during " + operation, cause);
