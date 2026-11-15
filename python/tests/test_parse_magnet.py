@@ -10,6 +10,7 @@ availability, we detect whether libtorrent is functional. If it is not, we
 install a minimal stub that provides just enough for the module to import, and
 skip the tests that genuinely exercise libtorrent's parsing.
 """
+import os
 import sys
 import types
 
@@ -75,3 +76,35 @@ def test_safe_save_path_rejects_traversal():
 
 def test_safe_save_path_allows_none_and_subdir():
     assert torrent_service._safe_save_path(None) == torrent_service._SAVE_ROOT
+
+
+# --- read/write/execute split ------------------------------------------------
+# Browsing spans every drive; writing is confined to the configured roots. These
+# two must not drift back into a single shared allowlist.
+
+
+def test_browse_reaches_outside_the_write_roots():
+    """A directory on any mounted drive is listable even though it is not writable."""
+    outside = os.path.dirname(os.path.dirname(torrent_service._SAVE_ROOT))
+    assert torrent_service._within(outside, torrent_service._READ_PREFIXES)
+    assert not torrent_service._within(outside, torrent_service._WRITE_PREFIXES)
+    torrent_service.list_dir(outside)  # must not raise
+
+
+def test_mkdir_rejects_outside_write_roots():
+    outside = os.path.dirname(os.path.dirname(torrent_service._SAVE_ROOT))
+    with pytest.raises(ValueError):
+        torrent_service.make_dir(outside, "sixeyes-should-not-exist")
+
+
+def test_write_root_match_is_case_insensitive_on_windows():
+    root = torrent_service._SAVE_ROOT
+    assert torrent_service._within(root.upper(), torrent_service._WRITE_PREFIXES)
+    assert torrent_service._within(root.lower(), torrent_service._WRITE_PREFIXES)
+
+
+def test_write_root_prefix_is_not_a_bare_string_match():
+    """`D:\\Games` must not authorise `D:\\GamesEvil`."""
+    assert not torrent_service._within(
+        torrent_service._SAVE_ROOT + "-evil", torrent_service._WRITE_PREFIXES
+    )
