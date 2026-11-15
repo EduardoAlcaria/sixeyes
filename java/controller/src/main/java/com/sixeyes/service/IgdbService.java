@@ -23,7 +23,7 @@ public class IgdbService {
     private static final String TOKEN_URL = "https://id.twitch.tv/oauth2/token";
     private static final String IGDB_BASE = "https://api.igdb.com/v4";
     private static final Pattern TITLE_STRIP = Pattern.compile(
-            "(?i)(\\s*v\\d[\\w.]*$|\\s*\\[.*?]|\\s*\\(v?[\\d.]+.*?\\)|\\s*\\+\\s*\\d+\\s*dlcs?.*|\\s*–.*edition.*|\\s*—.*edition.*)$"
+            "(?i)(\\s*v\\d[\\w.]*$|\\s*\\[.*?]|\\s*\\(v?[\\d.]+.*?\\)|\\s*\\+\\s*\\d+\\s*dlcs?.*|\\s*-.*edition.*|\\s*-.*edition.*)$"
     );
 
     private final String clientId;
@@ -49,6 +49,14 @@ public class IgdbService {
         if (clientId.isBlank() || clientSecret.isBlank()) return;
         List<CatalogGame> pending = repo.findPendingIgdbEnrichment(PageRequest.of(0, 10));
         if (pending.isEmpty()) return;
+        // Without a token every lookup fails; bail before marking the batch as enriched,
+        // or those games would never be retried.
+        try {
+            ensureToken();
+        } catch (Exception e) {
+            log.warn("IGDB token unavailable, skipping enrichment: {}", e.getMessage());
+            return;
+        }
         log.info("IGDB enriching {} games", pending.size());
         for (CatalogGame game : pending) {
             game.setIgdbEnriched(true);
@@ -73,6 +81,8 @@ public class IgdbService {
             return;
         }
         game.setIgdbId(igdbId);
+        // IGDB cover wins: FitGirl's own og:image often points at hosts that are long dead
+        // (fastpic links 404). The page image stays only when IGDB has no cover.
         applycover(game, igdbId);
         applyDetails(game, igdbId);
         applyHltb(game, igdbId);
@@ -81,8 +91,10 @@ public class IgdbService {
 
     // ── private helpers ──────────────────────────────────────────────────────
 
-    private String stripSuffixes(String title) {
-        String cleaned = TITLE_STRIP.matcher(title).replaceAll("").trim();
+    String stripSuffixes(String title) {
+        // FitGirl: "Name – v1.2 + 3 DLCs" / "Name, v1.0.4" - the game name is the part before.
+        String head = title.split("\\s+[–—]\\s+|,\\s*v\\d", 2)[0];
+        String cleaned = TITLE_STRIP.matcher(head).replaceAll("").trim();
         return cleaned.isBlank() ? title : cleaned;
     }
 
