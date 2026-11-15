@@ -1,7 +1,7 @@
 # SixEyes 🚀
 ### A hybrid torrent manager built on Java, Python, React
 
-Manage your torrents remotely from anywhere — no VPN, no port forwarding, no static IP. The whole app runs locally in Docker and is published on your own domain through a single **Cloudflare Tunnel**. The browser talks to a React frontend; an nginx reverse proxy forwards `/api/v1/*` to the Spring Boot middleware, which drives a local Python agent running LibTorrent.
+Manage your torrents remotely from anywhere - no VPN, no port forwarding, no static IP. The whole app runs locally in Docker and is published on your own domain through a single **Cloudflare Tunnel**. The browser talks to a React frontend; an nginx reverse proxy forwards `/api/v1/*` to the Spring Boot middleware, which drives a local Python agent running LibTorrent.
 
 **Simple idea. Complex engineering.**
 
@@ -9,7 +9,7 @@ Manage your torrents remotely from anywhere — no VPN, no port forwarding, no s
 
 ## 🧱 Architecture
 
-Everything runs locally via `docker compose`. Only the frontend container is exposed to the internet — through one Cloudflare Tunnel, on `sixeyes.alcaria.dev`. The Python agent and PostgreSQL stay internal on the docker network.
+Everything runs locally via `docker compose`. Only the frontend container is exposed to the internet - through one Cloudflare Tunnel, on `sixeyes.alcaria.dev`. The Python agent and PostgreSQL stay internal on the docker network.
 
 ```
 Browser ── https://sixeyes.alcaria.dev ──► Cloudflare edge
@@ -35,24 +35,24 @@ Browser ── https://sixeyes.alcaria.dev ──► Cloudflare edge
                      └──────────────┘                  └──────────────────┘
 ```
 
-### ⚙️ Middleware — Spring Boot (Java 21)
+### ⚙️ Middleware - Spring Boot (Java 21)
 - JWT-authenticated REST API, all routes under `/api/v1`
 - Orchestrates the local Python agent over the internal docker network
 - Formats raw torrent data (speeds, progress, status), persists to PostgreSQL
 - CORS locked to `sixeyes.alcaria.dev` (same-origin in production)
 
-### 🎨 Frontend — React + TypeScript
+### 🎨 Frontend - React + TypeScript
 - JWT login, real-time dashboard (5-second polling)
 - Live download/upload charts, host disk monitoring, completed downloads, settings
 - Served as static files by nginx, which also reverse-proxies the API (same origin → no CORS)
 
-### 🐍 Local Agent — Python + FastAPI
+### 🐍 Local Agent - Python + FastAPI
 - LibTorrent operations (add magnet, add `.torrent` file, pause, resume, remove)
 - Host filesystem / disk usage reporting
-- **Internal only** — reachable solely by the Java middleware, never published to the host or internet
+- **Internal only** - reachable solely by the Java middleware, never published to the host or internet
 - Runs as a non-root user; validates download paths and enforces file/size caps
 
-### 💾 Database — PostgreSQL 16
+### 💾 Database - PostgreSQL 16
 - Runs in Docker, internal to the compose network, persists torrent state
 
 **The bridge:** one Cloudflare Tunnel replaces both the old ngrok tunnels and Google Cloud Run. `cloudflared` makes an outbound connection to Cloudflare, so no inbound ports are opened on your machine.
@@ -75,12 +75,12 @@ Browser ── https://sixeyes.alcaria.dev ──► Cloudflare edge
 
 ## 🔐 Security
 
-- JWT authentication — `POST /api/v1/auth/login` returns a Bearer token; all other endpoints require it
+- JWT authentication - `POST /api/v1/auth/login` returns a Bearer token; all other endpoints require it
 - Spring Security 6 filter chain (`JwtFilter`) on every request, HMAC-SHA256 signing
 - CORS restricted to `https://sixeyes.alcaria.dev` + localhost dev origins
 - Python agent is not internet-exposed (internal docker network only), runs as non-root
 - Download path containment + torrent file-count/size caps on the agent
-- No credentials in the codebase — all secrets via environment variables
+- No credentials in the codebase - all secrets via environment variables
 
 ---
 
@@ -135,7 +135,7 @@ Brings up: PostgreSQL → Python agent → Java middleware → nginx frontend �
 
 ## 💥 CI
 
-GitHub Actions runs **build + tests only** (no cloud deploy — deployment is `git pull` + `docker compose up -d --build` on the host):
+GitHub Actions runs **build + tests only** (no cloud deploy - deployment is `git pull` + `docker compose up -d --build` on the host):
 - **Backend:** `mvn clean test`
 - **Frontend:** `npm ci` + `npm run build`
 
