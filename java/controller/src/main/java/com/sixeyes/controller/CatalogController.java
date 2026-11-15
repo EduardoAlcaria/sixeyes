@@ -19,11 +19,12 @@ public class CatalogController {
 
     @GetMapping("/search")
     public ResponseEntity<Page<CatalogGameResponse>> search(
-            @RequestParam String q,
+            @RequestParam(defaultValue = "") String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "24") int size
     ) {
-        return ResponseEntity.ok(catalogService.search(q, page, size));
+        return ResponseEntity.ok(catalogService.search(q, Math.max(page, 0),
+                Math.clamp(size, 1, 100)));
     }
 
     @GetMapping("/game")
