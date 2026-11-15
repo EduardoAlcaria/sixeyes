@@ -99,7 +99,7 @@ class TorrentTest {
         assertTrue(r1.matches("\\d+\\.\\d{2} MB/s"));
     }
 
-    // --- Progress (Python sends 0.0–100.0 float) ---
+    // --- Progress (Python sends 0.0-100.0 float) ---
 
     @Test
     @DisplayName("rounds progress to 2 decimal places")
