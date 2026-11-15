@@ -1,3 +1,6 @@
+# Server-deploy path only. The local path is now native - see docs/runbook-native.md.
+# Kept working alongside the native migration: the /api/v1 prefix moved from the servlet
+# context path into WebConfig, so external URLs and this nginx proxy are unchanged.
 services:
 
   db:
@@ -39,8 +42,12 @@ services:
       - sixeyes-net
     environment:
       - DOWNLOAD_PATH=/app/downloads
-      - HOST_DRIVES=/host/C,/host/D
+      # Browsing spans every mounted drive read-only; writes are confined to this list.
+      - ALLOWED_WRITE_ROOTS=${ALLOWED_WRITE_ROOTS:-/app/downloads}
       - STATE_DIR=/app/state
+      # The agent refuses to start unauthenticated - any process reaching port 9999 could
+      # otherwise drive filesystem browse and mkdir with no credentials.
+      - AGENT_KEY=${AGENT_KEY:?AGENT_KEY must be set}
     healthcheck:
    
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9999/python/test || exit 1"]
@@ -66,8 +73,11 @@ services:
       - sixeyes-net
     environment:
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      # Defaults to loopback for the native run; in a container that would make the
+      # published port unreachable.
+      - SERVER_ADDRESS=0.0.0.0
       - PYTHON_SERVICE_URL=http://sixeyes-python:9999
-      - JWT_SECRET=${JWT_SECRET}
+      - AGENT_KEY=${AGENT_KEY:?AGENT_KEY must be set}
       - ADMIN_USERNAME=${ADMIN_USERNAME}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - DB_URL=jdbc:postgresql://db:5432/${DB_NAME}
@@ -75,6 +85,8 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - IGDB_CLIENT_ID=${IGDB_CLIENT_ID}
       - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET}
+      # Auto-install runs a Windows .exe; a Linux container cannot. Native only.
+      - INSTALL_ENABLED=false
     healthcheck:
   
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9090/api/v1/torrents/test || exit 1"]
