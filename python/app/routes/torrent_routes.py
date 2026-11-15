@@ -10,6 +10,9 @@ class AddTorrentRequest(BaseModel):
     id: int
     magnet: str
     downloadPath: str | None = None
+    # FitGirl optional parts to skip by name (fg-optional-bonus-content) - priority 0,
+    # never requested from peers. Matched against file names once metadata arrives.
+    skipParts: list[str] = []
 
 
 class TorrentIdRequest(BaseModel):
@@ -20,7 +23,11 @@ class TorrentIdRequest(BaseModel):
 
 @router.post("/add", status_code=201)
 def add(body: AddTorrentRequest):
-    return torrent_service.add_torrent(body.id, body.magnet, body.downloadPath)
+    try:
+        return torrent_service.add_torrent(
+            body.id, body.magnet, body.downloadPath, body.skipParts)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/get")
