@@ -7,11 +7,9 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { systemApi } from '@/services/api'
 import type { BrowseResult } from '@/types'
 
-// /host/C/Movies -> C:\Movies ; /app/downloads -> friendly default label
-export function friendlyPath(p: string | null): string {
-  if (!p) return 'Default downloads'
-  if (p === '/app/downloads' || p.endsWith('/app/downloads')) return 'Default downloads'
-  return p.replace(/^\/host\/([A-Za-z])/, '$1:').replace(/\//g, '\\')
+/** Relative paths (the ./downloads default) mean "the agent's own folder". */
+export function friendlyPath(p: string | null, fallback = 'Default downloads'): string {
+  return p && /^([A-Za-z]:[\\/]|\\\\|\/)/.test(p) ? p : fallback
 }
 
 export function FolderPicker({
@@ -38,9 +36,10 @@ export function FolderPicker({
     }
   }
 
-  // initial load (roots, or wherever value points)
+  // initial load (roots, or wherever value points). A relative value would be resolved
+  // against the agent's working directory - start from the drive list instead.
   useEffect(() => {
-    load(value ?? undefined)
+    load(value && friendlyPath(value, '') ? value : undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
