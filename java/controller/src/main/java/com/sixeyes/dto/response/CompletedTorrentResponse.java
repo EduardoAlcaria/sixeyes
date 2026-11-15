@@ -9,7 +9,11 @@ public record CompletedTorrentResponse(
         String title,
         String size,
         String completedAt,
-        String installStatus
+        String savePath,
+        String installPath,
+        boolean installable,
+        String installStatus,
+        String installMessage
 ) {
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
@@ -19,7 +23,11 @@ public record CompletedTorrentResponse(
                 t.getTitle(),
                 t.getSize(),
                 t.getUpdatedAt() != null ? t.getUpdatedAt().format(FMT) : "Unknown",
-                t.getInstallStatus()
+                t.getSavePath(),
+                t.getInstallPath(),
+                Boolean.TRUE.equals(t.getFitgirl()),
+                t.getInstallStatus(),
+                t.getInstallMessage()
         );
     }
 }
