@@ -1,0 +1,24 @@
+# Native local run: no Postgres container, no nginx. H2 keeps the data in one file
+# next to the jar. AUTO_SERVER lets a second tool (an IDE console) attach while the
+# app holds the file open.
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/sixeyes;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+session:
+  # Plain http on loopback during local development - a Secure cookie would never
+  # be stored. Behind the tunnel (HTTPS) this stays true.
+  cookie-secure: ${SESSION_COOKIE_SECURE:false}
+
+logging:
+  level:
+    com.sixeyes: DEBUG
+    org.hibernate.SQL: WARN
