@@ -22,6 +22,8 @@ public class TorrentSyncService {
 
     private final TorrentRepository torrentRepository;
     private final PythonClientService pythonClient;
+    private final HistoryService history;
+    private final EventService events;
 
     @Scheduled(fixedDelayString = "${sync.interval-ms:3000}")
     @Transactional
@@ -40,7 +42,14 @@ public class TorrentSyncService {
                 if (data.get("id") instanceof Number n) {
                     engineIds.add(n.longValue());
                     Torrent torrent = byId.get(n.longValue());
-                    if (torrent != null) applyTelemetry(torrent, data);
+                    if (torrent != null) {
+                        boolean wasCompleted = torrent.isCompleted();
+                        TorrentStatus before = torrent.getStatus();
+                        applyTelemetry(torrent, data);
+                        queueAutoInstall(torrent);
+                        recordTransitions(torrent, wasCompleted, before);
+                        history.observe(torrent, SystemInfoService.parseSpeed(torrent.getDownloadSpeed()));
+                    }
                 }
             });
 
@@ -49,7 +58,7 @@ public class TorrentSyncService {
             log.debug("Synced {} active torrent(s) from engine", active.size());
 
         } catch (Exception e) {
-            log.warn("Engine sync failed — will retry on next cycle: {}", e.getMessage());
+            log.warn("Engine sync failed - will retry on next cycle: {}", e.getMessage());
         }
     }
 
@@ -58,7 +67,8 @@ public class TorrentSyncService {
         for (Torrent t : active) {
             if (t.getStatus() == TorrentStatus.DOWNLOADING && !engineIds.contains(t.getId())) {
                 try {
-                    pythonClient.startDownload(t.getId(), t.getMagnet(), t.getSavePath());
+                    pythonClient.startDownload(t.getId(), t.getMagnet(), t.getSavePath(),
+                            t.skipPartList());
                     log.info("Reconcile: re-added missing torrent id={} to engine", t.getId());
                 } catch (Exception e) {
                     log.warn("Reconcile: re-add failed for id={}: {}", t.getId(), e.getMessage());
@@ -67,7 +77,32 @@ public class TorrentSyncService {
         }
     }
 
+    private void recordTransitions(Torrent t, boolean wasCompleted, TorrentStatus before) {
+        if (!wasCompleted && t.isCompleted()) {
+            events.record("DOWNLOAD_DONE", com.sixeyes.model.AppEvent.Level.OK,
+                    "Download concluído: " + TorrentService.name(t), t.getId());
+        }
+        if (before != TorrentStatus.ERROR && t.getStatus() == TorrentStatus.ERROR) {
+            events.record("DOWNLOAD_ERROR", com.sixeyes.model.AppEvent.Level.ERROR,
+                    "Erro em " + TorrentService.name(t)
+                            + (t.getErrorMessage() != null ? ": " + t.getErrorMessage() : ""), t.getId());
+        }
+    }
+
+    /** Download finished and the user asked for auto-install: hand it to InstallService. */
+    private void queueAutoInstall(Torrent torrent) {
+        String install = torrent.getInstallStatus();
+        if (Boolean.TRUE.equals(torrent.getAutoInstall()) && torrent.isCompleted()
+                && (install == null || "NONE".equals(install))) {
+            torrent.setInstallStatus("REQUESTED");
+            log.info("Auto-install queued: id={} title={}", torrent.getId(), torrent.getTitle());
+        }
+    }
+
     private void applyTelemetry(Torrent torrent, Map<String, Object> data) {
+
+        // A finished or stalled torrent reports eta=null; skipping it would freeze the last value.
+        if (data.containsKey("eta")) torrent.setEta(asString(data.get("eta")));
 
         data.forEach((key, value) -> {
             if (value == null) return;
@@ -76,9 +111,19 @@ public class TorrentSyncService {
                 case "title" -> torrent.setTitle(asString(value));
                 case "infoHash" -> torrent.setInfoHash(asString(value));
                 case "size" -> torrent.setSize(asString(value));
-                case "eta" -> torrent.setEta(asString(value));
+                case "error" -> torrent.setErrorMessage(asString(value));
+                // The agent resolves the default folder itself; record where it really went.
+                case "savePath" -> {
+                    if (torrent.getSavePath() == null) torrent.setSavePath(asString(value));
+                }
 
                 case "peers" -> torrent.setPeers(asInt(value));
+                case "seeds" -> torrent.setSeeds(asInt(value));
+                case "connections" -> torrent.setConnections(asInt(value));
+                case "availability" -> torrent.setAvailability(asDouble(value));
+                case "totalDownloaded" -> torrent.setTotalDownloaded(asLong(value));
+                case "totalUploaded" -> torrent.setTotalUploaded(asLong(value));
+                case "wasted" -> torrent.setWasted(asLong(value));
                 case "progress" -> torrent.setProgress(asDouble(value));
 
                 case "downloadSpeed" ->
@@ -133,6 +178,10 @@ public class TorrentSyncService {
 
     private int asInt(Object o) {
         return o instanceof Number n ? n.intValue() : 0;
+    }
+
+    private long asLong(Object o) {
+        return o instanceof Number n ? n.longValue() : 0L;
     }
 
     private double asDouble(Object o) {
