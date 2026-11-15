@@ -59,7 +59,7 @@ def _clean(text: str) -> str:
     text = (
         text.replace("&amp;", "&")
         .replace("&#8217;", "’")
-        .replace("&#8211;", "–")
+        .replace("&#8211;", "-")
         .replace("&#038;", "&")
         .replace("&nbsp;", " ")
     )
@@ -112,7 +112,7 @@ def crawl(out: str, max_pages: int, delay: float, with_magnets: bool) -> int:
 
             batch = extract(html)
             if not batch:
-                print(f"page {page}: 0 entries — end of catalog.")
+                print(f"page {page}: 0 entries - end of catalog.")
                 break
 
             new = 0
@@ -121,11 +121,11 @@ def crawl(out: str, max_pages: int, delay: float, with_magnets: bool) -> int:
                     seen.add(g["url"])
                     games.append(g)
                     new += 1
-            print(f"page {page}: {len(batch)} entries ({new} new) — total {len(games)}")
+            print(f"page {page}: {len(batch)} entries ({new} new) - total {len(games)}")
 
             # All-duplicate page = LCP looped back to the start; stop.
             if new == 0:
-                print(f"page {page}: all duplicates — stopping.")
+                print(f"page {page}: all duplicates - stopping.")
                 break
 
             page += 1
