@@ -49,13 +49,57 @@ public class Torrent {
     @Column(name = "save_path", length = 4000)
     private String savePath;
 
-    // NONE | REQUESTED | INSTALLING | INSTALLED | FAILED — drives the host auto-installer.
+    // NONE | REQUESTED | INSTALLING | INSTALLED | FAILED - drives the host auto-installer.
     // Nullable so ddl-auto=update can add it to a populated table; null is treated as NONE.
     @Column(name = "install_status")
     private String installStatus = "NONE";
 
     @Column(name = "install_message", length = 2000)
     private String installMessage;
+
+    /** Where the game gets installed; blank falls back to the Settings default. */
+    @Column(name = "install_path", length = 4000)
+    private String installPath;
+
+    /** Queue the install by itself once the download completes. */
+    @Column(name = "auto_install")
+    private Boolean autoInstall = false;
+
+    /** Newline-separated fg-optional-* parts never downloaded (and so never installed). */
+    @Column(name = "skip_parts", length = 2000)
+    private String skipParts;
+
+    /**
+     * The info hash matches a magnet from a FitGirl post. Only these may be installed:
+     * the installer runs elevated, and the hash pins every byte of what gets executed.
+     */
+    @Column(name = "fitgirl")
+    private Boolean fitgirl;
+
+    /** Engine-side failure reason shown next to the Error status. */
+    @Column(name = "error_message", length = 1000)
+    private String errorMessage;
+
+    // Live swarm stats from the engine. Wrapper types: ddl-auto=update adds them as
+    // nullable columns to a table that already has rows.
+    private Integer seeds;
+    private Integer connections;
+    private Double availability;
+    @Column(name = "total_downloaded")
+    private Long totalDownloaded;
+    @Column(name = "total_uploaded")
+    private Long totalUploaded;
+    private Long wasted;
+
+    /** Folder the installer wrote the game to; set when the install succeeds. */
+    @Column(name = "installed_dir", length = 4000)
+    private String installedDir;
+
+    public java.util.List<String> skipPartList() {
+        return skipParts == null || skipParts.isBlank()
+                ? java.util.List.of()
+                : java.util.List.of(skipParts.split("\n"));
+    }
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
