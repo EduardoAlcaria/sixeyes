@@ -59,6 +59,30 @@ public class CatalogGame {
     @Column(name = "igdb_enriched")
     private Boolean igdbEnriched;
 
+    /** WordPress post id - the stable key; titles and slugs change on updates. */
+    @Column(name = "wp_id", unique = true)
+    private Long wpId;
+
+    @Column(name = "posted_at")
+    private LocalDateTime postedAt;
+
+    @Column(name = "modified_at")
+    private LocalDateTime modifiedAt;
+
+    @Column(name = "original_size")
+    private String originalSize;
+
+    @Column(length = 500)
+    private String genres;
+
+    /** Newline-separated fg-optional-* part names the user may skip. */
+    @Column(name = "optional_parts", length = 2000)
+    private String optionalParts;
+
+    /** Newline-separated screenshot URLs. */
+    @Column(length = 4000)
+    private String screenshots;
+
     @CreationTimestamp
     @Column(name = "scraped_at", updatable = false)
     private LocalDateTime scrapedAt;
