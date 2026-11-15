@@ -27,7 +27,9 @@ public class TorrentController {
     @PostMapping("/add")
     public ResponseEntity<TorrentResponse> add(@Valid @RequestBody AddTorrentRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(torrentService.addTorrent(request.magnet(), request.downloadPath()));
+                .body(torrentService.addTorrent(request.magnet(), request.downloadPath(),
+                        request.installPath(), Boolean.TRUE.equals(request.autoInstall()),
+                        request.skipParts()));
     }
 
     @PostMapping(value = "/addFile", consumes = "multipart/form-data")
@@ -83,18 +85,14 @@ public class TorrentController {
         return ResponseEntity.ok(torrentService.cancelInstall(id));
     }
 
+    @GetMapping("/{id}/details")
+    public ResponseEntity<Map<String, Object>> details(@PathVariable @Positive Long id) {
+        return ResponseEntity.ok(torrentService.details(id));
+    }
+
     @GetMapping("/install/queue")
     public ResponseEntity<List<com.sixeyes.dto.response.InstallJob>> installQueue() {
         return ResponseEntity.ok(torrentService.getInstallQueue());
-    }
-
-    @PutMapping("/{id}/install/status")
-    public ResponseEntity<Map<String, String>> installStatus(
-            @PathVariable @Positive Long id,
-            @Valid @RequestBody com.sixeyes.dto.request.InstallStatusRequest request
-    ) {
-        torrentService.updateInstallStatus(id, request.status(), request.message());
-        return ResponseEntity.ok(Map.of("status", request.status()));
     }
 
     @GetMapping("/test")
