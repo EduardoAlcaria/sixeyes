@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Gamepad2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -9,6 +10,8 @@ interface Props {
 }
 
 export function GameCard({ game, onClick }: Props) {
+  // Old FitGirl covers point at dead image hosts; fall back to the placeholder.
+  const [broken, setBroken] = useState(false)
   return (
     <button
       type="button"
@@ -17,12 +20,13 @@ export function GameCard({ game, onClick }: Props) {
     >
       <Card className="overflow-hidden transition-all group-hover:ring-2 group-hover:ring-primary/50 group-hover:shadow-md">
         <div className="aspect-[3/4] relative overflow-hidden bg-muted">
-          {game.imageUrl ? (
+          {game.imageUrl && !broken ? (
             <img
               src={game.imageUrl}
               alt={game.title}
               className="object-cover w-full h-full transition-transform group-hover:scale-105"
               loading="lazy"
+              onError={() => setBroken(true)}
             />
           ) : (
             <div className="flex items-center justify-center w-full h-full text-muted-foreground">
@@ -31,7 +35,7 @@ export function GameCard({ game, onClick }: Props) {
           )}
         </div>
         <CardContent className="p-2.5">
-          <p className="text-xs font-medium line-clamp-2 leading-snug">{game.title}</p>
+          <p className="text-xs font-medium line-clamp-2 leading-snug min-h-[2lh]">{game.title}</p>
           {game.repackSize && (
             <p className="text-xs text-muted-foreground mt-0.5">{game.repackSize}</p>
           )}
