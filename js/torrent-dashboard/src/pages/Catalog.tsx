@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { RefreshCw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,10 +9,18 @@ import { useCatalog } from '@/hooks/useCatalog'
 import type { CatalogGame } from '@/types'
 
 export function CatalogPage() {
-  const { query, setQuery, page, setPage, results, loading, refresh } = useCatalog()
+  const { query, setQuery, page, setPage, results, loading, refresh, settled } = useCatalog()
   const [selected, setSelected] = useState<CatalogGame | null>(null)
+  // Stable: the dialog's fetch effect depends on it and refired on every render.
+  const closeDialog = useCallback(() => setSelected(null), [])
+  // The command palette sends searches here as ?q=.
+  const [params] = useSearchParams()
+  const q = params.get('q')
+  useEffect(() => {
+    if (q) setQuery(q)
+  }, [q, setQuery])
 
-  const isEmpty = !loading && results !== null && results.content.length === 0
+  const isEmpty = settled && !loading && results !== null && results.content.length === 0
 
   return (
     <div className="space-y-4">
@@ -22,6 +31,7 @@ export function CatalogPage() {
           <Input
             autoFocus
             placeholder="Search FitGirl repacks…"
+            aria-label="Search FitGirl repacks"
             value={query}
             onChange={e => setQuery(e.target.value)}
             className="pl-9"
@@ -36,7 +46,7 @@ export function CatalogPage() {
         <p className="text-center text-muted-foreground py-16 text-sm">
           {query.trim()
             ? `No results for "${query}"`
-            : <>Catalog is empty — click <button type="button" onClick={refresh} className="underline underline-offset-2 hover:text-foreground">refresh</button> to index.</>
+            : <>Catalog is still importing from FitGirl - click <button type="button" onClick={refresh} className="underline underline-offset-2 hover:text-foreground">refresh</button> to sync now.</>
           }
         </p>
       )}
@@ -86,7 +96,7 @@ export function CatalogPage() {
       <GameDownloadDialog
         game={selected}
         open={selected !== null}
-        onClose={() => setSelected(null)}
+        onClose={closeDialog}
       />
     </div>
   )
