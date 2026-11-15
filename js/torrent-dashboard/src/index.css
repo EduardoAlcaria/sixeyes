@@ -41,45 +41,64 @@
   --font-mono: JetBrains Mono, ui-monospace, monospace;
   --radius: 1.25rem;
   --tracking-normal: -0.01em;
+  --panel2: oklch(0.9600 0.0120 280);
+  --faint: oklch(0.5800 0.0200 300);
+  --cyan: oklch(0.5600 0.1300 215);
+  --violet: oklch(0.5200 0.2100 300);
+  --pink: oklch(0.5800 0.2200 350);
+  --ok: oklch(0.5600 0.1500 155);
+  --warn: oklch(0.6400 0.1500 70);
+  --bad: oklch(0.5858 0.2220 17.5846);
 }
 
 .dark {
-  --background: oklch(0.1063 0.0172 259.5380);
-  --foreground: oklch(0.9924 0.0028 308.4292);
-  --card: oklch(0.1450 0.0211 263.1799);
-  --card-foreground: oklch(0.9924 0.0028 308.4292);
-  --popover: oklch(0.1418 0.0229 268.4497);
-  --popover-foreground: oklch(0.9924 0.0028 308.4292);
-  --primary: oklch(0.3820 0.1967 265.2890);
+  /* Command Deck: committed dark "mission control" palette. Native scrollbars and form
+     controls follow the theme instead of staying white. */
+  color-scheme: dark;
+  --background: oklch(0.0950 0.0180 265);
+  --foreground: oklch(0.9700 0.0060 300);
+  --card: oklch(0.1550 0.0270 268);
+  --card-foreground: oklch(0.9700 0.0060 300);
+  --popover: oklch(0.1950 0.0360 272);
+  --popover-foreground: oklch(0.9700 0.0060 300);
+  --primary: oklch(0.6400 0.1950 268);
   --primary-foreground: oklch(1.0000 0 0);
-  --secondary: oklch(0.2108 0.0426 270.3694);
-  --secondary-foreground: oklch(0.9924 0.0028 308.4292);
-  --muted: oklch(0.1797 0.0376 272.6396);
-  --muted-foreground: oklch(0.6878 0.0218 285.8125);
-  --accent: oklch(0.2553 0.0657 274.6654);
-  --accent-foreground: oklch(0.9924 0.0028 308.4292);
-  --destructive: oklch(0.4038 0.1343 13.3026);
+  --secondary: oklch(0.1950 0.0360 272);
+  --secondary-foreground: oklch(0.9700 0.0060 300);
+  --muted: oklch(0.1300 0.0230 266);
+  --muted-foreground: oklch(0.6900 0.0260 285);
+  --accent: oklch(0.1950 0.0360 272);
+  --accent-foreground: oklch(0.9700 0.0060 300);
+  --destructive: oklch(0.6600 0.2250 18);
   --destructive-foreground: oklch(1.0000 0 0);
-  --border: oklch(0.2445 0.0736 280.5871);
-  --input: oklch(0.2603 0.0625 272.3700);
-  --ring: oklch(0.3395 0.1557 273.0758);
-  --chart-1: oklch(0.6199 0.1907 271.3978);
-  --chart-2: oklch(0.7599 0.1368 61.0595);
-  --chart-3: oklch(0.6450 0.2154 16.4393);
-  --chart-4: oklch(0.7049 0.1867 47.6044);
-  --chart-5: oklch(0.3395 0.1557 273.0758);
-  --sidebar: oklch(0.1692 0.0341 271.7324);
-  --sidebar-foreground: oklch(0.6170 0.0377 281.6233);
-  --sidebar-primary: oklch(0.6199 0.1907 271.3978);
-  --sidebar-primary-foreground: oklch(0.9924 0.0028 308.4292);
-  --sidebar-accent: oklch(0.2553 0.0657 274.6654);
-  --sidebar-accent-foreground: oklch(0.9924 0.0028 308.4292);
-  --sidebar-border: oklch(0.2445 0.0736 280.5871);
-  --sidebar-ring: oklch(0.3395 0.1557 273.0758);
+  --border: oklch(0.2600 0.0560 278);
+  --input: oklch(0.2600 0.0560 278);
+  --ring: oklch(0.6400 0.1950 268);
+  --chart-1: oklch(0.7800 0.1450 205);
+  --chart-2: oklch(0.6900 0.2050 300);
+  --chart-3: oklch(0.7000 0.2300 350);
+  --chart-4: oklch(0.7600 0.1700 155);
+  --chart-5: oklch(0.8000 0.1550 78);
+  --sidebar: oklch(0.1300 0.0230 266);
+  --sidebar-foreground: oklch(0.5200 0.0320 282);
+  --sidebar-primary: oklch(0.7800 0.1450 205);
+  --sidebar-primary-foreground: oklch(0.0950 0.0180 265);
+  --sidebar-accent: oklch(0.1550 0.0270 268);
+  --sidebar-accent-foreground: oklch(0.9700 0.0060 300);
+  --sidebar-border: oklch(0.2600 0.0560 278);
+  --sidebar-ring: oklch(0.6400 0.1950 268);
+  --panel2: oklch(0.1950 0.0360 272);
+  --faint: oklch(0.5200 0.0320 282);
+  --cyan: oklch(0.7800 0.1450 205);
+  --violet: oklch(0.6900 0.2050 300);
+  --pink: oklch(0.7000 0.2300 350);
+  --ok: oklch(0.7600 0.1700 155);
+  --warn: oklch(0.8000 0.1550 78);
+  --bad: oklch(0.6600 0.2250 18);
   --font-sans: Bricolage Grotesque, ui-sans-serif, sans-serif, system-ui;
   --font-serif: Georgia, serif;
   --font-mono: JetBrains Mono, ui-monospace, monospace;
-  --radius: 1.25rem;
+  --radius: 1.05rem;
 }
 
 @theme inline {
@@ -115,6 +134,14 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-panel2: var(--panel2);
+  --color-faint: var(--faint);
+  --color-cyan: var(--cyan);
+  --color-violet: var(--violet);
+  --color-pink: var(--pink);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
