@@ -10,7 +10,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,52 +18,35 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CatalogServiceTest {
 
     @Mock CatalogGameRepository repo;
-    @Mock CatalogScraperService scraper;
+    @Mock FitgirlApiService fitgirl;
     @InjectMocks CatalogService service;
 
     @Test
     void search_returnsPagedResults() {
-        CatalogGame game = makeGame(1L, "Cyberpunk 2077", "https://fitgirl-repacks.site/cyberpunk-2077/");
+        CatalogGame game = makeGame("Cyberpunk 2077", "https://fitgirl-repacks.site/cyberpunk-2077/");
         when(repo.searchByTitle(eq("cyber"), any())).thenReturn(new PageImpl<>(List.of(game)));
 
-        Page<CatalogGameResponse> result = service.search("cyber", 0, 24);
+        Page<CatalogGameResponse> result = service.search(" cyber ", 0, 24);
 
-        assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).title()).isEqualTo("Cyberpunk 2077");
+        assertThat(result.getContent()).extracting(CatalogGameResponse::title).containsExactly("Cyberpunk 2077");
     }
 
     @Test
-    void getDetails_returnsCachedWhenMagnetPresent() throws Exception {
-        CatalogGame game = makeGame(1L, "Elden Ring", "https://fitgirl-repacks.site/elden-ring/");
-        game.setMagnet("magnet:?xt=urn:btih:ABC");
-        game.setImageUrl("https://img.example.com/cover.jpg");
+    void getDetails_splitsOptionalPartsAndScreenshots() {
+        CatalogGame game = makeGame("Elden Ring", "https://fitgirl-repacks.site/elden-ring/");
+        game.setOptionalParts("fg-optional-bonus\nfg-optional-russian");
         when(repo.findByUrl("https://fitgirl-repacks.site/elden-ring/")).thenReturn(Optional.of(game));
 
         CatalogGameResponse result = service.getDetails("https://fitgirl-repacks.site/elden-ring/");
 
-        assertThat(result.magnet()).isEqualTo("magnet:?xt=urn:btih:ABC");
-        verifyNoInteractions(scraper);
-    }
-
-    @Test
-    void getDetails_fetchesAndCachesWhenMagnetMissing() throws Exception {
-        CatalogGame game = makeGame(1L, "Elden Ring", "https://fitgirl-repacks.site/elden-ring/");
-        when(repo.findByUrl("https://fitgirl-repacks.site/elden-ring/")).thenReturn(Optional.of(game));
-        var detail = new CatalogScraperService.GameDetail("https://img.example.com/cover.jpg", "magnet:?xt=urn:btih:DEF", "30 GB");
-        when(scraper.fetchAndParseGameDetail("https://fitgirl-repacks.site/elden-ring/")).thenReturn(detail);
-        when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-        CatalogGameResponse result = service.getDetails("https://fitgirl-repacks.site/elden-ring/");
-
-        assertThat(result.magnet()).isEqualTo("magnet:?xt=urn:btih:DEF");
-        assertThat(result.imageUrl()).isEqualTo("https://img.example.com/cover.jpg");
-        verify(repo).save(any());
+        assertThat(result.optionalParts()).containsExactly("fg-optional-bonus", "fg-optional-russian");
+        assertThat(result.screenshots()).isEmpty();
     }
 
     @Test
@@ -83,9 +65,9 @@ class CatalogServiceTest {
                 .hasMessageContaining("fitgirl-repacks.site");
     }
 
-    private CatalogGame makeGame(Long id, String title, String url) {
+    private CatalogGame makeGame(String title, String url) {
         CatalogGame g = new CatalogGame();
-        g.setId(id);
+        g.setId(1L);
         g.setTitle(title);
         g.setUrl(url);
         return g;
