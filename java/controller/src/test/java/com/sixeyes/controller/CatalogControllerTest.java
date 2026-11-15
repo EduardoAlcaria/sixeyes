@@ -2,7 +2,7 @@ package com.sixeyes.controller;
 
 import com.sixeyes.dto.response.CatalogGameResponse;
 import com.sixeyes.service.CatalogService;
-import com.sixeyes.service.JwtService;
+import com.sixeyes.service.SessionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -24,7 +24,11 @@ class CatalogControllerTest {
 
     @Autowired MockMvc mvc;
     @MockBean CatalogService service;
-    @MockBean JwtService jwtService;
+    // SessionFilter is a Filter, so @WebMvcTest instantiates it and needs its dependency.
+    @MockBean SessionService sessionService;
+
+    /** WebConfig prefixes controller routes, so tests must use the real runtime path. */
+    private static final String API = "/api/v1";
 
     @Test
     @WithMockUser
@@ -32,11 +36,11 @@ class CatalogControllerTest {
         var game = new CatalogGameResponse(1L, "Cyberpunk 2077",
                 "https://fitgirl-repacks.site/cyberpunk-2077/",
                 "https://img.example.com/cover.jpg", "magnet:?xt=urn:btih:ABC", "42 GB",
-                null, null, null, null, null, null, null);
+                null, null, null, List.of(), List.of(), null, null, null, null, null, null, null);
         when(service.search(eq("cyber"), eq(0), eq(24)))
                 .thenReturn(new PageImpl<>(List.of(game)));
 
-        mvc.perform(get("/catalog/search").param("q", "cyber"))
+        mvc.perform(get(API + "/catalog/search").param("q", "cyber"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].title").value("Cyberpunk 2077"))
                 .andExpect(jsonPath("$.content[0].magnet").value("magnet:?xt=urn:btih:ABC"));
@@ -44,9 +48,10 @@ class CatalogControllerTest {
 
     @Test
     @WithMockUser
-    void search_returns400WhenQMissing() throws Exception {
-        mvc.perform(get("/catalog/search"))
-                .andExpect(status().isBadRequest());
+    void search_withoutQueryBrowsesCatalog() throws Exception {
+        when(service.search(eq(""), eq(0), eq(24))).thenReturn(new PageImpl<>(List.of()));
+        mvc.perform(get(API + "/catalog/search"))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -55,10 +60,10 @@ class CatalogControllerTest {
         var game = new CatalogGameResponse(1L, "Elden Ring",
                 "https://fitgirl-repacks.site/elden-ring/",
                 "https://img.example.com/cover.jpg", "magnet:?xt=urn:btih:DEF", "30 GB",
-                null, null, null, null, null, null, null);
+                null, null, null, List.of(), List.of(), null, null, null, null, null, null, null);
         when(service.getDetails("https://fitgirl-repacks.site/elden-ring/")).thenReturn(game);
 
-        mvc.perform(get("/catalog/game").param("url", "https://fitgirl-repacks.site/elden-ring/"))
+        mvc.perform(get(API + "/catalog/game").param("url", "https://fitgirl-repacks.site/elden-ring/"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.magnet").value("magnet:?xt=urn:btih:DEF"));
     }
@@ -66,13 +71,13 @@ class CatalogControllerTest {
     @Test
     @WithMockUser
     void refresh_returns202() throws Exception {
-        mvc.perform(post("/catalog/refresh").with(csrf()))
+        mvc.perform(post(API + "/catalog/refresh").with(csrf()))
                 .andExpect(status().isAccepted());
     }
 
     @Test
     void search_returns401WithoutAuth() throws Exception {
-        mvc.perform(get("/catalog/search").param("q", "test"))
+        mvc.perform(get(API + "/catalog/search").param("q", "test"))
                 .andExpect(status().isUnauthorized());
     }
 }
