@@ -382,7 +382,7 @@ export function HeatmapWidget({ activity }: { activity: ActivityDay[] | null }) 
   return (
     <Panel title="Atividade" note={`${bytes(total)} em ${days.length} dias`}>
       <div className="overflow-x-auto pb-1">
-        <div className="grid w-max grid-flow-col gap-[3px]" style={{ gridTemplateRows: 'repeat(7, 12px)', gridAutoColumns: '12px' }}>
+        <div className="grid min-w-max grid-flow-col gap-[3px]" style={{ gridTemplateRows: 'repeat(7, 12px)', gridAutoColumns: 'minmax(12px, 1fr)' }}>
           {Array.from({ length: lead }).map((_, i) => <span key={`pad${i}`} />)}
           {days.map(d => (
             <span key={d.date} className="rounded-[2px]"
