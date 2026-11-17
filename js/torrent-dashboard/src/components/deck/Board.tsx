@@ -97,7 +97,7 @@ export function Board({ widgets }: { widgets: Widget[] }) {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-3.5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         {order.filter(id => !hidden.includes(id)).map((id, index, visible) => {
           const w = byId.get(id)
           if (!w) return null
@@ -109,7 +109,7 @@ export function Board({ widgets }: { widgets: Widget[] }) {
               onDragOver={e => { e.preventDefault(); if (id !== dragging) setOver(id) }}
               onDragLeave={() => setOver(o => (o === id ? null : o))}
               onDrop={e => { e.preventDefault(); drop(id); setOver(null) }}
-              className={cn('group relative min-w-0', w.wide && 'lg:col-span-2',
+              className={cn('group relative min-w-0 [&>section]:h-full', w.wide && 'lg:col-span-2',
                 dragging === id && 'opacity-35',
                 over === id && 'rounded-[var(--radius)] outline-2 outline-dashed outline-offset-4 outline-cyan')}>
               {/* Sits on the panel's top border so it never covers the panel's own header
