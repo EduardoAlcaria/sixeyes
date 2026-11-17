@@ -132,7 +132,11 @@ public class IgdbService {
         if (results == null || results.isEmpty()) return;
         Map g = results.get(0);
         Object summary = g.get("summary");
-        if (summary != null) game.setSummary(summary.toString());
+        // column is VARCHAR(4000); IGDB summaries can be longer
+        if (summary != null) {
+            String s = summary.toString();
+            game.setSummary(s.length() > 4000 ? s.substring(0, 4000) : s);
+        }
         Object companies = g.get("involved_companies");
         if (companies instanceof List<?> ics) {
             List<String> devs = extractCompanies(ics, "developer");
