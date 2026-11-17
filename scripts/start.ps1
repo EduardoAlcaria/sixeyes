@@ -12,11 +12,14 @@
 #>
 [CmdletBinding()]
 param(
-  [string]$EnvFile = (Join-Path $PSScriptRoot '..\.env'),
+  [string]$EnvFile,
   [switch]$Lan
 )
 
 $ErrorActionPreference = 'Stop'
+# $PSScriptRoot can be empty inside param() defaults on Windows PowerShell 5.1
+if (-not $PSScriptRoot) { $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path }
+if (-not $EnvFile) { $EnvFile = Join-Path $PSScriptRoot '..\.env' }
 
 $root       = Resolve-Path (Join-Path $PSScriptRoot '..')
 $controller = Join-Path $root 'java\controller'
