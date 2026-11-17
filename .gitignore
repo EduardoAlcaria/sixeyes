@@ -48,3 +48,6 @@ java/controller/src/main/resources/static/*
 # Native run artifacts
 java/controller/data/
 python/state/
+
+# Playwright MCP scratch (snapshots can hold typed credentials)
+.playwright-mcp/
