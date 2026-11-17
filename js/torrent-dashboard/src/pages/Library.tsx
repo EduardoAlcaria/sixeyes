@@ -3,6 +3,7 @@ import { Play, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { AddTorrentDialog } from '@/components/torrents/AddTorrentDialog'
 import { Bar, Cover, Metric, Panel, Pill, SourceBadge, Stat, StageTrace, coverGradient, stages, steamArt } from '@/components/deck/primitives'
+import { GameDetailDialog } from '@/components/deck/GameDetailDialog'
 import { TorrentActions } from '@/components/deck/TorrentActions'
 import { TorrentDetailDialog } from '@/components/deck/TorrentDetailDialog'
 import { usePolling } from '@/hooks/usePolling'
@@ -57,7 +58,16 @@ export function LibraryPage() {
   const [sort, setSort] = useState<Sort>('progress')
   const [q, setQ] = useState('')
   const games = usePolling(insightApi.games, 60_000).data
-  const steam = (games?.games ?? []).filter(g => g.source === 'STEAM')
+  const [openGame, setOpenGame] = useState<Game | null>(null)
+  const [launching, setLaunching] = useState<string | null>(null)
+  const steam = useMemo(() => {
+    const text = q.trim().toLowerCase()
+    return (games?.games ?? [])
+      .filter(g => g.source === 'STEAM' && (!text || g.name.toLowerCase().includes(text)))
+      .sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name)
+        : sort === 'added' ? (b.lastPlayed ?? '').localeCompare(a.lastPlayed ?? '')
+        : b.playtimeMinutes - a.playtimeMinutes)
+  }, [games, q, sort])
 
   const done = (t: Torrent) => t.progress >= 100 || t.status === 'Seeding'
   const shown = useMemo(() => {
@@ -89,11 +99,14 @@ export function LibraryPage() {
   const totalUp = torrents.reduce((s, t) => s + (t.totalUploaded ?? 0), 0)
 
   const launch = async (g: Game) => {
+    setLaunching(g.key)
     try {
       await insightApi.launch(g.key)
       toast.success(`Abrindo ${g.name}`)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Não abriu')
+    } finally {
+      setLaunching(null)
     }
   }
 
@@ -120,7 +133,7 @@ export function LibraryPage() {
       <div className="flex flex-wrap items-center gap-2.5 rounded-[var(--radius)] border bg-card p-3">
         <label className="flex min-w-[180px] flex-1 items-center gap-2 rounded-lg border bg-background px-3 py-2 text-muted-foreground">
           <Search className="size-4" />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filtrar torrents…" aria-label="Filtrar torrents"
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filtrar torrents e jogos…" aria-label="Filtrar"
             className="w-full bg-transparent text-foreground outline-none" />
         </label>
         <div className="flex flex-wrap gap-1.5">
@@ -186,11 +199,14 @@ export function LibraryPage() {
           <div className="grid gap-3.5 lg:grid-cols-2">
             {steam.map(g => (
               <Panel key={g.key} className="flex items-center gap-3">
+                <button type="button" onClick={() => setOpenGame(g)} aria-label={`Detalhes de ${g.name}`}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left">
                 <Cover className="size-11 shrink-0 rounded-[10px]" seed={g.name} sources={steamArt(g.key.slice(6), false)} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[0.92rem] font-bold"><SourceBadge source="STEAM" />{g.name}</div>
                   <div className="font-mono text-[0.74rem] text-muted-foreground">{bytes(g.sizeBytes)} · {minutes(g.playtimeMinutes)} jogadas</div>
                 </div>
+                </button>
                 <button type="button" onClick={() => launch(g)}
                   className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#66c0f4] px-3 text-xs font-bold text-[#0b1b2b]">
                   <Play className="size-3.5" /> Jogar
@@ -201,6 +217,7 @@ export function LibraryPage() {
         </>
       )}
 
+      <GameDetailDialog game={openGame} onClose={() => setOpenGame(null)} onLaunch={launch} launching={launching === openGame?.key} />
       <TorrentDetailDialog torrentId={openId} onClose={() => setOpenId(null)} handlers={handlers} />
     </>
   )
