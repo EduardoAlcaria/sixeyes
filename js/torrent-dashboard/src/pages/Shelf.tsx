@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Play } from 'lucide-react'
+import { Play, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { GameDetailDialog } from '@/components/deck/GameDetailDialog'
 import { Cover, Metric, SourceBadge, steamArt } from '@/components/deck/primitives'
@@ -16,11 +16,13 @@ export function ShelfPage() {
   const { data, refresh } = usePolling(insightApi.games, 30_000)
   const [filter, setFilter] = useState<Filter>('all')
   const [sort, setSort] = useState<Sort>('recent')
+  const [q, setQ] = useState('')
   const [open, setOpen] = useState<Game | null>(null)
   const [launching, setLaunching] = useState<string | null>(null)
   const games = data?.games ?? []
 
   const shown = useMemo(() => games
+    .filter(g => !q.trim() || g.name.toLowerCase().includes(q.trim().toLowerCase()))
     .filter(g => filter === 'all' || (filter === 'never' ? g.playtimeMinutes === 0 : g.source === filter))
     .sort((a, b) => {
       switch (sort) {
@@ -29,7 +31,7 @@ export function ShelfPage() {
         case 'played': return b.playtimeMinutes - a.playtimeMinutes
         default: return (b.lastPlayed ?? '').localeCompare(a.lastPlayed ?? '')
       }
-    }), [games, filter, sort])
+    }), [games, filter, sort, q])
 
   const launch = async (g: Game) => {
     setLaunching(g.key)
@@ -64,6 +66,11 @@ export function ShelfPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
+        <label className="flex min-w-[180px] items-center gap-2 rounded-full border bg-card px-3 py-1 text-muted-foreground">
+          <Search className="size-3.5" />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar jogo…" aria-label="Buscar jogo"
+            className="w-full bg-transparent text-[0.76rem] text-foreground outline-none" />
+        </label>
         {([['all', 'Tudo'], ['TORRENT', 'FitGirl'], ['STEAM', 'Steam'], ['LOCAL', 'Pasta local'], ['never', 'Nunca jogados']] as [Filter, string][]).map(([f, label]) => (
           <button key={f} type="button" onClick={() => setFilter(f)}
             className={cn('rounded-full border px-3 py-1 text-[0.76rem]', filter === f ? 'border-primary bg-primary/20 text-foreground' : 'text-muted-foreground')}>
