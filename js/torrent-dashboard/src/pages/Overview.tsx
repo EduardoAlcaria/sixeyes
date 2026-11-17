@@ -36,7 +36,7 @@ export function OverviewPage() {
     { id: 'pipeline', label: 'Pipeline', render: () => <PipelineWidget torrents={torrents} onOpen={setOpenId} /> },
     { id: 'events', label: 'Eventos', render: () => <EventsWidget events={events} /> },
     { id: 'vitals', label: 'Vitais', render: () => <VitalsWidget vitals={vitals} /> },
-    { id: 'genres', label: 'Gêneros', render: () => <GenresWidget genres={genres} /> },
+    { id: 'genres', label: 'Gêneros', wide: true, render: () => <GenresWidget genres={genres} /> },
     { id: 'heat', label: 'Atividade', wide: true, render: () => <HeatmapWidget activity={activity} /> },
     { id: 'tree', label: 'Espaço', wide: true, render: () => <TreemapWidget library={library} /> },
   ]
