@@ -60,12 +60,41 @@ try {
 
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = $setup
-  $psi.Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCANCEL /SP- `"/DIR=$dir`""
+  # /COMPONENTS="text" = main game files only; leaves out the DirectX / VC++ redists, which
+  # download and open windows. /VERYSILENT does NOT skip [Run] postinstall entries (only
+  # skipifsilent ones), so the watcher below handles the rest.
+  $psi.Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCANCEL /SP- /COMPONENTS=`"text`" `"/DIR=$dir`""
   $psi.WorkingDirectory = [IO.Path]::GetDirectoryName($setup)
   $psi.UseShellExecute = $false
+
+  $hostsFile = Join-Path $env:SystemRoot 'System32\drivers\etc\hosts'
+  $hostsBefore = (Get-FileHash -LiteralPath $hostsFile -Algorithm SHA256).Hash
+
   $p = [System.Diagnostics.Process]::Start($psi)
-  $p.WaitForExit()
-  Write-Result $p.ExitCode "setup.exe exited with code $($p.ExitCode)"
+
+  # Post-install [Run] steps that block or misbehave unattended: QuickSFV (GUI window; we
+  # verify natively before this), the redist installers, and the repack's host.cmd, which
+  # edits the Windows hosts file. Kill them as they appear; only ones launched from the
+  # install folder, or host.cmd by name.
+  $killed = New-Object System.Collections.Generic.List[string]
+  $dirPrefix = $dir.TrimEnd('\') + '\'
+  while (-not $p.WaitForExit(500)) {
+    Get-CimInstance Win32_Process -Filter "Name='QuickSFV.exe' OR Name='dxwebsetup.exe' OR Name LIKE 'vc_redist%' OR Name='cmd.exe'" -ErrorAction SilentlyContinue | ForEach-Object {
+      $hit = if ($_.Name -ieq 'cmd.exe') { $_.CommandLine -match 'host\.cmd' }
+             else { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($dirPrefix, [StringComparison]::OrdinalIgnoreCase) }
+      if ($hit) {
+        Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+        $killed.Add($_.Name)
+      }
+    }
+  }
+
+  $msg = "setup.exe exited with code $($p.ExitCode)"
+  if ($killed.Count) { $msg += "; stopped: $(($killed | Select-Object -Unique) -join ', ')" }
+  if ((Get-FileHash -LiteralPath $hostsFile -Algorithm SHA256).Hash -ne $hostsBefore) {
+    $msg += '; WARNING: the hosts file changed during install - review it'
+  }
+  Write-Result $p.ExitCode $msg
   exit $p.ExitCode
 } catch {
   Write-Result 97 $_.Exception.Message
