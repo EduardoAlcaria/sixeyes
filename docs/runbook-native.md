@@ -148,8 +148,15 @@ offending files named.
 ### Redists and drivers are not installed
 
 They are declared as InnoSetup components - `directx`, `vc_2022_x86`, `vc_2022_x64`,
-`dotnet471` - so leaving them out of `/COMPONENTS` is all it takes. Their `[Run]` entries
-are `postinstall` flagged and `/VERYSILENT` skips them regardless, so nothing pops up.
+`dotnet471` - and the runner passes `/COMPONENTS="text"` (main game files only), which
+leaves them out.
+
+`/VERYSILENT` does **not** skip `[Run]` entries flagged `postinstall`; only `skipifsilent`
+ones are skipped. Read from a real repack script: QuickSFV, the `bit.ly` site link and
+`cmd /c host.cmd` (edits the Windows hosts file) run unattended and have no component to
+turn off. So `install-runner.ps1` watches the setup process and kills QuickSFV, the redist
+installers and `host.cmd`, and compares the hosts file hash before/after, reporting a
+change in the result message. Untested against a full install.
 Whether the machine has the right runtimes is the operator's problem for now.
 
 ### RAM limit: not present in any repack
