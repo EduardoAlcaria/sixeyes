@@ -70,6 +70,11 @@ export function GameDownloadDialog({ game, open, onClose }: Props) {
         autoInstall,
         skipParts: detail.optionalParts.filter(p => !wanted.has(p)),
       })
+      // Remember folders picked here as the defaults, so the next download starts with them.
+      if (settings && ((installPath && installPath !== settings.installPath) || (downloadPath && downloadPath !== settings.downloadPath))) {
+        settingsApi.update({ ...settings, installPath: installPath ?? settings.installPath, downloadPath: downloadPath ?? settings.downloadPath })
+          .catch(() => undefined) // a failed save must not undo the download that just started
+      }
       toast.success(autoInstall
         ? `Downloading ${detail.title} - it installs itself when done`
         : `Download started: ${detail.title}`)
