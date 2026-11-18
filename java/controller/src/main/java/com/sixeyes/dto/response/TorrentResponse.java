@@ -32,15 +32,16 @@ public record TorrentResponse(
         Double ratio,
         String installedDir,
         String coverUrl,
-        Integer installProgress
+        Integer installProgress,
+        String installEta
 ) {
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     public static TorrentResponse from(Torrent t) {
-        return from(t, null, null);
+        return from(t, null, null, null);
     }
 
-    public static TorrentResponse from(Torrent t, String coverUrl, Integer installProgress) {
+    public static TorrentResponse from(Torrent t, String coverUrl, Integer installProgress, String installEta) {
         Long down = t.getTotalDownloaded();
         Long up = t.getTotalUploaded();
         Double ratio = down != null && down > 0 && up != null
@@ -73,7 +74,8 @@ public record TorrentResponse(
                 ratio,
                 t.getInstalledDir(),
                 coverUrl,
-                installProgress
+                installProgress,
+                installEta
         );
     }
 }
