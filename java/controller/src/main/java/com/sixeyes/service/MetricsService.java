@@ -234,7 +234,7 @@ public class MetricsService {
             for (DiskInfo d : python.fetchDisks()) {
                 if (d.total() > 0 && (d.available() < 20 || d.available() / d.total() < 0.10)) {
                     events.recordOncePerDay("DISK_LOW", AppEvent.Level.WARN,
-                            "Disco " + d.device() + " com pouco espaço livre");
+                            "Disk " + d.device() + " is low on free space");
                 }
             }
         } catch (RuntimeException e) {
