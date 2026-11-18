@@ -28,7 +28,7 @@ class FitgirlOnlyInstallTest {
     private final CatalogGameRepository catalog = mock(CatalogGameRepository.class);
     private final TorrentService service =
             new TorrentService(torrents, mock(PythonClientService.class), mock(SettingsService.class), catalog,
-                    mock(HistoryService.class), mock(EventService.class));
+                    mock(HistoryService.class), mock(EventService.class), mock(RepackVerifier.class));
 
     private Torrent completed(String magnet) {
         Torrent t = new Torrent(magnet);
