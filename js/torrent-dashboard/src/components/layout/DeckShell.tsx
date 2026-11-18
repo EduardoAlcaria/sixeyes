@@ -16,7 +16,7 @@ const NAV = [
   { to: '/catalog', label: 'Catalog', icon: LibraryBig },
   { to: '/shelf', label: 'Shelf', icon: Joystick },
   { to: '/map', label: 'Peer Map', icon: Globe },
-  { to: '/history', label: 'Histórico', icon: Clock },
+  { to: '/history', label: 'History', icon: Clock },
 ]
 
 function CommandPalette({ open, onClose, onAddMagnet }: {
@@ -48,7 +48,7 @@ function CommandPalette({ open, onClose, onAddMagnet }: {
       .filter(n => !text || n.label.toLowerCase().includes(text.toLowerCase()))
       .map(n => ({ label: `Ir para ${n.label}`, icon: n.icon, run: async () => navigate(n.to) }))
     return text
-      ? [{ label: `Buscar "${text}" no catálogo`, icon: Search, run: async () => navigate(`/catalog?q=${encodeURIComponent(text)}`) }, ...go]
+      ? [{ label: `Search "${text}" in the catalog`, icon: Search, run: async () => navigate(`/catalog?q=${encodeURIComponent(text)}`) }, ...go]
       : go
   }, [q, navigate, onAddMagnet])
 
@@ -134,22 +134,22 @@ export function DeckShell({ onLogout }: { onLogout: () => void }) {
           <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-5 gap-y-2 border-b bg-sidebar/70 px-4 py-3 backdrop-blur md:px-6">
             <div className="flex items-center gap-2 text-[0.74rem] font-semibold text-muted-foreground" role="status">
               <span className={cn('size-2.5 rounded-full', online === false ? 'bg-bad' : online ? 'animate-pulse bg-ok' : 'bg-faint')} />
-              {online === false ? 'ENGINE OFFLINE' : online ? 'ONLINE' : 'CONECTANDO'}
+              {online === false ? 'ENGINE OFFLINE' : online ? 'ONLINE' : 'CONNECTING'}
             </div>
             <div className="flex flex-col"><span className="text-[0.6rem] uppercase tracking-[0.08em] text-faint">Download</span><b className="font-mono text-cyan">{down.toFixed(1)} MB/s</b></div>
             <div className="flex flex-col"><span className="text-[0.6rem] uppercase tracking-[0.08em] text-faint">Upload</span><b className="font-mono text-violet">{system.network.uploadSpeed.toFixed(1)} MB/s</b></div>
             <div className="hidden flex-col sm:flex"><span className="text-[0.6rem] uppercase tracking-[0.08em] text-faint">Swarm</span><b className="font-mono">{seeds} ⇵ {peers}</b></div>
             <button type="button" onClick={() => setPalette(true)}
               className="ml-auto hidden items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-[0.8rem] text-muted-foreground md:flex">
-              <Search className="size-3.5" /> Buscar ou colar magnet <kbd className="rounded border bg-panel2 px-1.5 font-mono text-[0.68rem]">Ctrl K</kbd>
+              <Search className="size-3.5" /> Search or paste a magnet <kbd className="rounded border bg-panel2 px-1.5 font-mono text-[0.68rem]">Ctrl K</kbd>
             </button>
-            <button type="button" onClick={() => setPalette(true)} aria-label="Buscar" className="ml-auto grid size-9 place-items-center rounded-lg border bg-card md:hidden">
+            <button type="button" onClick={() => setPalette(true)} aria-label="Search" className="ml-auto grid size-9 place-items-center rounded-lg border bg-card md:hidden">
               <Search className="size-4" />
             </button>
             <button type="button" onClick={toggle} aria-label="Alternar tema" className="grid size-9 place-items-center rounded-lg border bg-card text-muted-foreground">
               {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </button>
-            <button type="button" onClick={onLogout} aria-label="Sair" className="grid size-9 place-items-center rounded-lg border bg-card text-muted-foreground">
+            <button type="button" onClick={onLogout} aria-label="Sign out" className="grid size-9 place-items-center rounded-lg border bg-card text-muted-foreground">
               <LogOut className="size-4" />
             </button>
           </header>
