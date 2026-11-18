@@ -612,7 +612,11 @@ def _download_thread(data: dict) -> None:
             params.save_path = save_path
             params.storage_mode = lt.storage_mode_t.storage_mode_sparse
             handle = _session.add_torrent(params)
+        # Magnets are added paused + auto-managed; taking it out of the queue without
+        # resuming left it paused forever (no announce, no metadata) unless the queue
+        # happened to start it first.
         handle.auto_managed(False)
+        handle.resume()
         _id_by_handle[handle] = torrent_id
         _handle_by_id[torrent_id] = handle
         skip_parts = data.get("skipParts") or []
