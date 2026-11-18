@@ -127,6 +127,66 @@ public class GameService {
         }
     }
 
+    public record Achievement(String name, String description, boolean unlocked, String unlockedAt, String icon) {}
+
+    public record Achievements(int unlocked, int total, String note, List<Achievement> list) {}
+
+    private static final Map<String, Object[]> ACH_CACHE = new ConcurrentHashMap<>();
+
+    /**
+     * Achievements read from the public Steam profile of the account that last signed in on
+     * this PC - the stats page still answers anonymously with ?xml=1, no Web API key needed.
+     */
+    public Achievements achievements(String appId) {
+        if (!appId.matches("[0-9]{1,10}")) throw new IllegalArgumentException("invalid app id");
+        Object[] hit = ACH_CACHE.get(appId);
+        if (hit != null && System.currentTimeMillis() - (long) hit[0] < 600_000) return (Achievements) hit[1];
+        Object account = steam().get("account");
+        if (account == null) return new Achievements(0, 0, "No Steam account found on this PC", List.of());
+        Achievements result;
+        try {
+            HttpClient follow = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL)
+                    .connectTimeout(Duration.ofSeconds(5)).build();
+            HttpResponse<byte[]> r = follow.send(HttpRequest.newBuilder(URI.create("https://steamcommunity.com/profiles/"
+                            + account + "/stats/" + appId + "/?tab=achievements&xml=1"))
+                    .header("User-Agent", "Mozilla/5.0").timeout(Duration.ofSeconds(15)).build(),
+                    HttpResponse.BodyHandlers.ofByteArray());
+            var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+            // Untrusted XML from the network: no DTDs, no external entities.
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setExpandEntityReferences(false);
+            var doc = factory.newDocumentBuilder().parse(new java.io.ByteArrayInputStream(r.body()));
+            var nodes = doc.getElementsByTagName("achievement");
+            List<Achievement> list = new ArrayList<>();
+            for (int i = 0; i < nodes.getLength(); i++) {
+                var e = (org.w3c.dom.Element) nodes.item(i);
+                boolean done = "1".equals(e.getAttribute("closed"));
+                String ts = text(e, "unlockTimestamp");
+                String when = ts.isEmpty() ? null : LocalDateTime.ofInstant(Instant.ofEpochSecond(Long.parseLong(ts)),
+                        ZoneId.systemDefault()).toString();
+                list.add(new Achievement(text(e, "name"), text(e, "description"), done, when,
+                        text(e, done ? "iconClosed" : "iconOpen")));
+            }
+            int unlocked = (int) list.stream().filter(Achievement::unlocked).count();
+            result = new Achievements(unlocked, list.size(), list.isEmpty() ? "This game has no achievements, or the profile hides game details" : null, list);
+        } catch (Exception e) {
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            result = new Achievements(0, 0, "Steam profile unavailable: " + e.getMessage(), List.of());
+        }
+        ACH_CACHE.put(appId, new Object[]{System.currentTimeMillis(), result});
+        return result;
+    }
+
+    private static String text(org.w3c.dom.Element e, String tag) {
+        var n = e.getElementsByTagName(tag);
+        return n.getLength() == 0 ? "" : n.item(0).getTextContent().trim();
+    }
+
+    public void installSteam(String appId) {
+        if (!appId.matches("[0-9]{1,10}")) throw new IllegalArgumentException("invalid app id");
+        python.postJson("/python/steam/install", Map.of("appId", appId));
+    }
+
     /** Cached details, or null while the first lookup is still running (the next poll gets it). */
     private static SteamInfo steamInfo(String appId) {
         SteamInfo hit = STEAM_INFO.get(appId);
