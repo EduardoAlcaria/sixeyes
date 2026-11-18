@@ -40,7 +40,7 @@ export function WorldMap({ countries, className }: { countries: Record<string, C
   const max = Math.max(1, ...[...byNumeric.values()].map(v => v.peers))
 
   return (
-    <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className={className} role="img" aria-label="Mapa de peers por país">
+    <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className={className} role="img" aria-label="Peers map by country">
       <g>
         {shapes.map(s => {
           const hit = byNumeric.get(s.id)
