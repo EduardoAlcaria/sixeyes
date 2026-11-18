@@ -148,8 +148,9 @@ offending files named.
 ### Redists and drivers are not installed
 
 They are declared as InnoSetup components - `directx`, `vc_2022_x86`, `vc_2022_x64`,
-`dotnet471` - and the runner passes `/COMPONENTS="text"` (main game files only), which
-leaves them out.
+`dotnet471`. The runner does **not** pass `/COMPONENTS`: forcing `"text"` also deselected the
+voice-over packs downloaded on purpose (The Last of Us ships Portuguese-Brazil as `locra`).
+The installer's default selection is kept, and the redist installers it launches are killed.
 
 `/VERYSILENT` does **not** skip `[Run]` entries flagged `postinstall`; only `skipifsilent`
 ones are skipped. Read from a real repack script: QuickSFV, the `bit.ly` site link and
