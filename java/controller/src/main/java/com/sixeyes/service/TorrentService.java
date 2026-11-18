@@ -120,7 +120,8 @@ public class TorrentService {
         return torrentRepository.findAll().stream()
                 .peek(this::isFitgirlRepack)
                 .map(t -> TorrentResponse.from(t, coverFor(t),
-                        "VERIFYING".equals(t.getInstallStatus()) ? verifier.progressPercent()
+                        // Integer cast: an int branch would unbox the null branch and throw.
+                        "VERIFYING".equals(t.getInstallStatus()) ? (Integer) verifier.progressPercent()
                                 : "INSTALLING".equals(t.getInstallStatus()) ? setupProgress().percent() : null,
                         "INSTALLING".equals(t.getInstallStatus()) ? setupProgress().eta() : null))
                 .toList();
