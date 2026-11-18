@@ -1,5 +1,5 @@
 import type {
-  ActivityDay, AppEvent, BrowseResult, CatalogGame, CatalogPage, CompletedTorrent, DiskInfo,
+  Achievements, ActivityDay, AppEvent, BrowseResult, CatalogGame, CatalogPage, CompletedTorrent, DiskInfo,
   GameLibrary, Genre, HistoryEntry, MetricsSummary, NetRange, NetSeries, OwnedGame, PeerMap, PlayDay, Settings,
   SystemInfo, Torrent, TorrentDetails, Vitals,
 } from '../types'
@@ -186,6 +186,9 @@ export const insightApi = {
   games: () => request<GameLibrary>('/games'),
   genres: () => request<Genre[]>('/games/genres'),
   steamOwned: () => request<OwnedGame[]>('/games/steam/owned'),
+  steamInstall: (appId: string) =>
+    request<{ status: string }>('/games/steam/install', { method: 'POST', body: JSON.stringify({ appId }) }),
+  achievements: (appId: string) => request<Achievements>(`/games/steam/${appId}/achievements`),
   playtime: (days = 364, key?: string) =>
     request<PlayDay[]>(`/games/playtime?days=${days}${key ? `&key=${encodeURIComponent(key)}` : ''}`),
   launch: (key: string) =>
