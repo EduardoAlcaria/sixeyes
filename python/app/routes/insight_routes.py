@@ -45,7 +45,16 @@ def vitals():
 @router.get("/steam/library")
 def steam_library(force: bool = False):
     return {"root": steam.steam_root(), "libraries": steam.library_paths(), "games": steam.library(force),
-            "owned": steam.owned_not_installed()}
+            "owned": steam.owned_not_installed(), "account": steam.account_id()}
+
+
+@router.post("/steam/install")
+def steam_install(body: SteamLaunchRequest):
+    try:
+        steam.install(body.appId)
+        return {"success": True}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/steam/launch")
