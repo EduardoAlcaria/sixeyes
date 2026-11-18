@@ -41,17 +41,17 @@ export function minutes(min: number | null | undefined): string {
   return h >= 1 ? `${h}h${min % 60 ? String(min % 60).padStart(2, '0') : ''}` : `${min}m`
 }
 
-/** ISO local date-time -> "14:32", "ontem", "3 dias", "12/10". */
+/** ISO local date-time -> "14:32", "yesterday", "3 dias", "12/10". */
 export function when(iso: string | null | undefined): string {
   if (!iso) return '—'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   const now = new Date()
   const days = Math.floor((new Date(now.toDateString()).getTime() - new Date(d.toDateString()).getTime()) / 86400000)
-  if (days <= 0) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-  if (days === 1) return 'ontem'
-  if (days < 7) return `${days} dias`
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+  if (days <= 0) return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  if (days === 1) return 'yesterday'
+  if (days < 7) return `${days}d ago`
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })
 }
 
 export function between(a: string | null | undefined, b: string | null | undefined): number | null {
@@ -60,7 +60,7 @@ export function between(a: string | null | undefined, b: string | null | undefin
 }
 
 const regionNames = typeof Intl !== 'undefined' && 'DisplayNames' in Intl
-  ? new Intl.DisplayNames(['pt-BR'], { type: 'region' })
+  ? new Intl.DisplayNames(['en'], { type: 'region' })
   : null
 
 export function countryName(code: string): string {
