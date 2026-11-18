@@ -29,6 +29,8 @@ export interface Torrent {
   coverUrl: string | null
   /** 0-100 while verifying; null when the length of the work is unknown. */
   installProgress: number | null
+  /** Time left reported by setup.exe while installing, "01:22:39". */
+  installEta: string | null
 }
 
 export type TorrentStatus = 'Downloading' | 'Seeding' | 'Paused' | 'Stopped' | 'Error'
@@ -317,4 +319,10 @@ export interface OwnedGame {
   name: string
   playtimeMinutes: number
   lastPlayed: string | null
+}
+
+/** Minutes played on one day, from the sessions SixEyes watched. */
+export interface PlayDay {
+  date: string
+  minutes: number
 }
