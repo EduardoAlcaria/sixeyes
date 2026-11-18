@@ -64,7 +64,13 @@ export function Pill({ tone = 'muted', children }: { tone?: keyof typeof PILL; c
   )
 }
 
-export function Bar({ value, tone = 'flow', className }: { value: number; tone?: 'flow' | 'ok' | 'bad' | 'hot' | 'faint'; className?: string }) {
+export function Bar({ value, tone = 'flow', className, indeterminate }: {
+  value: number
+  tone?: 'flow' | 'ok' | 'bad' | 'hot' | 'faint'
+  className?: string
+  /** Work of unknown length: a block slides instead of filling. */
+  indeterminate?: boolean
+}) {
   const fill = {
     flow: 'bg-gradient-to-r from-primary to-cyan',
     ok: 'bg-ok',
@@ -73,8 +79,31 @@ export function Bar({ value, tone = 'flow', className }: { value: number; tone?:
     faint: 'bg-faint',
   }[tone]
   return (
-    <div className={cn('h-[7px] overflow-hidden rounded-full border bg-background', className)}>
-      <i className={cn('block h-full rounded-full', fill)} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+    <div className={cn('relative h-[7px] overflow-hidden rounded-full border bg-background', className)}>
+      {indeterminate
+        ? <i className={cn('animate-slide absolute top-0 block h-full w-1/3 rounded-full', fill)} />
+        : <i className={cn('block h-full rounded-full', fill)} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />}
+    </div>
+  )
+}
+
+/** Circular progress; with no value it spins, for work whose length is unknown. */
+export function Ring({ value, size = 44, tone = 'var(--cyan)', children }: {
+  value: number | null
+  size?: number
+  tone?: string
+  children?: ReactNode
+}) {
+  const r = 18
+  const c = 2 * Math.PI * r
+  return (
+    <div className="relative grid shrink-0 place-items-center" style={{ width: size, height: size }}>
+      <svg viewBox="0 0 44 44" className={cn('absolute inset-0 -rotate-90', value == null && 'animate-spin')}>
+        <circle cx="22" cy="22" r={r} fill="none" stroke="var(--border)" strokeWidth="4" />
+        <circle cx="22" cy="22" r={r} fill="none" stroke={tone} strokeWidth="4" strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={c * (1 - (value ?? 25) / 100)} />
+      </svg>
+      <span className="relative font-mono text-[0.62rem] font-bold">{children}</span>
     </div>
   )
 }
@@ -115,13 +144,13 @@ export function stages(t: Pick<Torrent, 'progress' | 'status' | 'installStatus' 
 }
 
 export function StageTrace({ value }: { value: [Stage, Stage, Stage, Stage] }) {
-  const labels = ['Baixar', 'Verificar', 'Instalar', 'Pronto']
+  const labels = ['Download', 'Verify', 'Install', 'Done']
   return (
     <div className="flex gap-1.5">
       {value.map((s, i) => (
         <div key={labels[i]} className="flex flex-1 flex-col gap-1">
           <div className={cn('h-1 rounded-full',
-            s === 'done' ? 'bg-ok' : s === 'now' ? 'bg-cyan shadow-[0_0_8px_var(--cyan)]' : s === 'fail' ? 'bg-bad' : 'bg-border')} />
+            s === 'done' ? 'bg-ok' : s === 'now' ? 'animate-breathe bg-cyan shadow-[0_0_8px_var(--cyan)]' : s === 'fail' ? 'bg-bad' : 'bg-border')} />
           <span className={cn('text-[0.6rem] tracking-[0.02em]',
             s === 'now' ? 'text-cyan' : s === 'done' ? 'text-muted-foreground' : s === 'fail' ? 'text-bad' : 'text-faint')}>
             {labels[i]}
@@ -134,7 +163,7 @@ export function StageTrace({ value }: { value: [Stage, Stage, Stage, Stage] }) {
 
 /** Fixed-width map of which pieces are on disk; each cell is a run of pieces. */
 export function PieceMap({ pieces, columns = 32 }: { pieces: number[]; columns?: number }) {
-  if (!pieces.length) return <p className="text-xs text-faint">Aguardando metadados…</p>
+  if (!pieces.length) return <p className="text-xs text-faint">Waiting for metadata…</p>
   return (
     <div className="grid gap-[2px]" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
       {pieces.map((p, i) => (
