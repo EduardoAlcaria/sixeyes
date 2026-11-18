@@ -44,7 +44,8 @@ def vitals():
 
 @router.get("/steam/library")
 def steam_library(force: bool = False):
-    return {"root": steam.steam_root(), "libraries": steam.library_paths(), "games": steam.library(force)}
+    return {"root": steam.steam_root(), "libraries": steam.library_paths(), "games": steam.library(force),
+            "owned": steam.owned_not_installed()}
 
 
 @router.post("/steam/launch")
