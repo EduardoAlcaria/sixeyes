@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Play, Search } from 'lucide-react'
+import { Download, Play, Search } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { AddTorrentDialog } from '@/components/torrents/AddTorrentDialog'
-import { Bar, Cover, Metric, Panel, Pill, SourceBadge, Stat, StageTrace, coverGradient, stages, steamArt } from '@/components/deck/primitives'
+import { Bar, Cover, Metric, Panel, Pill, Ring, SourceBadge, Stat, StageTrace, stages, steamArt } from '@/components/deck/primitives'
 import { GameDetailDialog } from '@/components/deck/GameDetailDialog'
 import { TorrentActions } from '@/components/deck/TorrentActions'
 import { TorrentDetailDialog } from '@/components/deck/TorrentDetailDialog'
@@ -18,8 +19,8 @@ type Filter = 'all' | 'downloading' | 'seeding' | 'paused' | 'installed' | 'stea
 type Sort = 'progress' | 'name' | 'speed' | 'added'
 
 const FILTERS: [Filter, string][] = [
-  ['all', 'Todos'], ['downloading', 'Baixando'], ['seeding', 'Semeando'], ['paused', 'Pausados'],
-  ['installed', 'Instalados'], ['steam', 'Steam'],
+  ['all', 'All'], ['downloading', 'Downloading'], ['seeding', 'Seeding'], ['paused', 'Paused'],
+  ['installed', 'Installed'], ['steam', 'Steam'],
 ]
 
 /** Last ~2 minutes of each torrent's speed, kept client-side for the card sparklines. */
@@ -58,6 +59,12 @@ export function LibraryPage() {
   const [sort, setSort] = useState<Sort>('progress')
   const [q, setQ] = useState('')
   const games = usePolling(insightApi.games, 60_000).data
+  const ownedAll = usePolling(insightApi.steamOwned, 60_000).data
+  const owned = useMemo(() => {
+    const text = q.trim().toLowerCase()
+    return (ownedAll ?? []).filter(g => !text || g.name.toLowerCase().includes(text))
+      .sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name) : b.playtimeMinutes - a.playtimeMinutes)
+  }, [ownedAll, q, sort])
   const [openGame, setOpenGame] = useState<Game | null>(null)
   const [launching, setLaunching] = useState<string | null>(null)
   const steam = useMemo(() => {
@@ -102,9 +109,9 @@ export function LibraryPage() {
     setLaunching(g.key)
     try {
       await insightApi.launch(g.key)
-      toast.success(`Abrindo ${g.name}`)
+      toast.success(`Opening ${g.name}`)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Não abriu')
+      toast.error(e instanceof Error ? e.message : 'Could not open')
     } finally {
       setLaunching(null)
     }
@@ -121,19 +128,19 @@ export function LibraryPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-        <Metric label="Baixando" value={downloading.length} tone="up"
+        <Metric label="Downloading" value={downloading.length} tone="up"
           hint={`↓ ${downloading.reduce((s, t) => s + speed(t.downloadSpeed), 0).toFixed(1)} MB/s`} />
-        <Metric label="Semeando" value={torrents.filter(t => t.status === 'Seeding').length} tone="muted"
+        <Metric label="Seeding" value={torrents.filter(t => t.status === 'Seeding').length} tone="muted"
           hint={`↑ ${torrents.reduce((s, t) => s + speed(t.uploadSpeed), 0).toFixed(1)} MB/s`} />
-        <Metric label="Pausados" value={torrents.filter(t => t.status === 'Paused' || t.status === 'Stopped').length} tone="muted" />
-        <Metric label="Baixado (total)" value={bytes(totalDown)} tone="muted" />
-        <Metric label="Ratio da fila" value={totalDown ? (totalUp / totalDown).toFixed(2) : '—'} tone="muted" hint={`enviado ${bytes(totalUp)}`} />
+        <Metric label="Paused" value={torrents.filter(t => t.status === 'Paused' || t.status === 'Stopped').length} tone="muted" />
+        <Metric label="Downloaded (total)" value={bytes(totalDown)} tone="muted" />
+        <Metric label="Queue ratio" value={totalDown ? (totalUp / totalDown).toFixed(2) : '—'} tone="muted" hint={`uploaded ${bytes(totalUp)}`} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2.5 rounded-[var(--radius)] border bg-card p-3">
         <label className="flex min-w-[180px] flex-1 items-center gap-2 rounded-lg border bg-background px-3 py-2 text-muted-foreground">
           <Search className="size-4" />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filtrar torrents e jogos…" aria-label="Filtrar"
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter torrents and games…" aria-label="Filtrar"
             className="w-full bg-transparent text-foreground outline-none" />
         </label>
         <div className="flex flex-wrap gap-1.5">
@@ -144,35 +151,45 @@ export function LibraryPage() {
             </button>
           ))}
         </div>
-        <select value={sort} onChange={e => setSort(e.target.value as Sort)} aria-label="Ordenar"
+        <select value={sort} onChange={e => setSort(e.target.value as Sort)} aria-label="Sort"
           className="rounded-full border bg-card px-3 py-1 text-[0.76rem] text-muted-foreground">
-          <option value="progress">Ordenar: progresso</option>
-          <option value="speed">Ordenar: velocidade</option>
-          <option value="name">Ordenar: nome</option>
-          <option value="added">Ordenar: mais recentes</option>
+          <option value="progress">Sort: progress</option>
+          <option value="speed">Sort: speed</option>
+          <option value="name">Sort: name</option>
+          <option value="added">Sort: newest</option>
         </select>
       </div>
 
       {filter !== 'steam' && (
         <div className="grid gap-3.5 lg:grid-cols-2">
-          {shown.map(t => (
+          {shown.map(t => {
+            const verifying = t.installStatus === 'VERIFYING'
+            const installing = t.installStatus === 'INSTALLING'
+            // While the repack is being verified or installed, that work replaces the download bar.
+            const busy = verifying || installing
+            return (
             <Panel key={t.id} className="flex flex-col gap-2.5">
               <div className="flex items-center gap-3">
-                <div className="size-11 shrink-0 rounded-[10px]" style={{ background: coverGradient(t.title ?? String(t.id)) }} />
+                <Cover className="aspect-[2/3] w-12 shrink-0 rounded-[8px]" seed={t.title ?? String(t.id)} sources={[t.coverUrl]} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[0.92rem] font-bold"><SourceBadge source="TORRENT" />{cleanTitle(t.title)}</div>
                   <div className="truncate font-mono text-[0.74rem] text-muted-foreground">
-                    {t.size} · {t.progress.toFixed(1)}%{t.eta ? ` · ETA ${t.eta}` : ''}{t.errorMessage ? ` · ${t.errorMessage}` : ''}
+                    {busy
+                      ? `${verifying ? 'Verifying files' : 'Installing'}${verifying && t.installProgress != null ? ` · ${t.installProgress}%` : ''}`
+                      : `${t.size} · ${t.progress.toFixed(1)}%${t.eta ? ` · ETA ${t.eta}` : ''}${t.errorMessage ? ` · ${t.errorMessage}` : ''}`}
                   </div>
                 </div>
-                {t.status === 'Error' ? <Pill tone="bad">Erro</Pill>
-                  : t.installStatus === 'INSTALLED' ? <Pill tone="ok">Instalado</Pill>
-                  : t.installStatus === 'FAILED' ? <Pill tone="bad">Install falhou</Pill>
-                  : t.status === 'Seeding' ? <Pill tone="ok">Semeando</Pill>
-                  : t.status === 'Downloading' ? <Pill tone="go">{Math.floor(t.progress)}%</Pill>
-                  : <Pill>{t.status === 'Paused' ? 'Pausado' : 'Parado'}</Pill>}
+                {busy ? <Ring value={verifying ? t.installProgress ?? 0 : null}>{verifying ? `${t.installProgress ?? 0}%` : ''}</Ring>
+                  : t.status === 'Error' ? <Pill tone="bad">Error</Pill>
+                  : t.installStatus === 'INSTALLED' ? <Pill tone="ok">Installed</Pill>
+                  : t.installStatus === 'FAILED' ? <Pill tone="bad">Install failed</Pill>
+                  : t.status === 'Seeding' ? <Pill tone="ok">Seeding</Pill>
+                  : t.status === 'Downloading' ? <Ring value={t.progress}>{Math.floor(t.progress)}%</Ring>
+                  : <Pill>{t.status === 'Paused' ? 'Paused' : 'Stopped'}</Pill>}
               </div>
-              <Bar value={t.progress} tone={t.status === 'Error' ? 'bad' : done(t) ? 'ok' : t.status === 'Downloading' ? 'flow' : 'faint'} />
+              {busy
+                ? <Bar value={t.installProgress ?? 0} indeterminate={installing} tone="flow" />
+                : <Bar value={t.progress} tone={t.status === 'Error' ? 'bad' : done(t) ? 'ok' : t.status === 'Downloading' ? 'flow' : 'faint'} />}
               <StageTrace value={stages(t)} />
               {t.installStatus === 'FAILED' && t.installMessage && (
                 <p className="rounded-md border border-bad/30 bg-bad/10 px-3 py-1.5 text-[0.76rem] text-bad">{t.installMessage}</p>
@@ -188,8 +205,9 @@ export function LibraryPage() {
               <Sparkline values={history.get(t.id) ?? []} tone={t.status === 'Seeding' ? 'var(--violet)' : 'var(--cyan)'} />
               <div className="flex justify-end"><TorrentActions torrent={t} handlers={handlers} /></div>
             </Panel>
-          ))}
-          {!shown.length && <p className="py-10 text-center text-sm text-faint lg:col-span-2">Nada aqui.</p>}
+            )
+          })}
+          {!shown.length && <p className="py-10 text-center text-sm text-faint lg:col-span-2">Nothing here.</p>}
         </div>
       )}
 
@@ -199,17 +217,17 @@ export function LibraryPage() {
           <div className="grid gap-3.5 lg:grid-cols-2">
             {steam.map(g => (
               <Panel key={g.key} className="flex items-center gap-3">
-                <button type="button" onClick={() => setOpenGame(g)} aria-label={`Detalhes de ${g.name}`}
+                <button type="button" onClick={() => setOpenGame(g)} aria-label={`Details of ${g.name}`}
                   className="flex min-w-0 flex-1 items-center gap-3 text-left">
                 <Cover className="size-11 shrink-0 rounded-[10px]" seed={g.name} sources={steamArt(g.key.slice(6), false)} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[0.92rem] font-bold"><SourceBadge source="STEAM" />{g.name}</div>
-                  <div className="font-mono text-[0.74rem] text-muted-foreground">{bytes(g.sizeBytes)} · {minutes(g.playtimeMinutes)} jogadas</div>
+                  <div className="font-mono text-[0.74rem] text-muted-foreground">{bytes(g.sizeBytes)} · {minutes(g.playtimeMinutes)} played</div>
                 </div>
                 </button>
                 <button type="button" onClick={() => launch(g)}
                   className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#66c0f4] px-3 text-xs font-bold text-[#0b1b2b]">
-                  <Play className="size-3.5" /> Jogar
+                  <Play className="size-3.5" /> Play
                 </button>
               </Panel>
             ))}
@@ -218,6 +236,32 @@ export function LibraryPage() {
       )}
 
       <GameDetailDialog game={openGame} onClose={() => setOpenGame(null)} onLaunch={launch} launching={launching === openGame?.key} />
+      {filter === 'steam' && owned.length > 0 && (
+        <>
+          <h2 className="mt-2 text-[0.74rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+            In your Steam library · not installed ({owned.length})
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+            {owned.map(g => (
+              <div key={g.appId} className="overflow-hidden rounded-[calc(var(--radius)*0.6)] border bg-card">
+                <Cover className="aspect-[2/3] w-full" seed={g.name} sources={steamArt(g.appId)}>
+                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-2.5 pb-2 pt-6 text-[0.8rem] font-bold text-white">
+                    {g.name}
+                  </span>
+                </Cover>
+                <div className="flex items-center justify-between gap-2 px-2.5 py-2">
+                  <span className="font-mono text-[0.68rem] text-faint">{g.playtimeMinutes ? minutes(g.playtimeMinutes) : 'never played'}</span>
+                  <Link to={`/catalog?q=${encodeURIComponent(g.name)}`} aria-label={`Find ${g.name} in the catalog`}
+                    className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+                    <Download className="size-3.5" />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       <TorrentDetailDialog torrentId={openId} onClose={() => setOpenId(null)} handlers={handlers} />
     </>
   )
