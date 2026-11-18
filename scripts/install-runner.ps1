@@ -79,6 +79,22 @@ try {
   # install folder, or host.cmd by name.
   $killed = New-Object System.Collections.Generic.List[string]
   $dirPrefix = $dir.TrimEnd('\') + '\'
+
+  # Stall watchdog. Inno puts "4.8%   01:22:39" in setup.tmp's window title even when silent,
+  # and a hung unpacker (seen: TLOU stuck at 4.8% for an hour, zero CPU, music still playing)
+  # never exits on its own. Same title and almost no CPU across the setup tree for
+  # $stallMinutes = stalled: kill the whole tree, music included, and report it.
+  $stallMinutes = 20
+  $lastTitle = $null; $lastCpu = 0.0; $quietSince = Get-Date; $nextCheck = (Get-Date).AddMinutes(1)
+  $stalled = $null
+  function Get-SetupTree {
+    # setup.exe -> setup.tmp -> unpackers (xtool, srep, precomp...) run from Inno's is-*.tmp folder.
+    Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+      $_.ProcessId -eq $p.Id -or $_.Name -ieq 'setup.tmp' -or
+      ($_.ExecutablePath -and $_.ExecutablePath -match '\\is-[^\\]+\.tmp\\')
+    }
+  }
+
   while (-not $p.WaitForExit(500)) {
     Get-CimInstance Win32_Process -Filter "Name='QuickSFV.exe' OR Name='dxwebsetup.exe' OR Name LIKE 'vc_redist%' OR Name='cmd.exe'" -ErrorAction SilentlyContinue | ForEach-Object {
       $hit = if ($_.Name -ieq 'cmd.exe') { $_.CommandLine -match 'host\.cmd' }
@@ -88,6 +104,27 @@ try {
         $killed.Add($_.Name)
       }
     }
+
+    if ((Get-Date) -ge $nextCheck) {
+      $nextCheck = (Get-Date).AddMinutes(1)
+      $tree = @(Get-SetupTree)
+      $cpu = 0.0
+      foreach ($t in $tree) { $cpu += ($t.KernelModeTime + $t.UserModeTime) / 1e7 }
+      $title = (Get-Process setup.tmp -ErrorAction SilentlyContinue | Select-Object -First 1).MainWindowTitle
+      # Under 3 CPU-seconds a minute is the installer's UI and music, not unpacking.
+      if ($title -ne $lastTitle -or ($cpu - $lastCpu) -gt 3) { $quietSince = Get-Date }
+      $lastTitle = $title; $lastCpu = $cpu
+      if (((Get-Date) - $quietSince).TotalMinutes -ge $stallMinutes) {
+        $stalled = if ($title) { $title.Trim() } else { 'unknown progress' }
+        foreach ($t in $tree) { Stop-Process -Id $t.ProcessId -Force -ErrorAction SilentlyContinue }
+        break
+      }
+    }
+  }
+
+  if ($stalled) {
+    Write-Result 96 "Installer stalled at $stalled for $stallMinutes minutes with no CPU activity - stopped it. Close heavy apps (RAM) and install again."
+    exit 96
   }
 
   $msg = "setup.exe exited with code $($p.ExitCode)"
