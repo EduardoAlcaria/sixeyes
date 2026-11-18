@@ -35,6 +35,7 @@ public class InsightController {
     private final HistoryService history;
     private final GameService games;
     private final PythonClientService python;
+    private final com.sixeyes.repo.PlaySessionRepository playSessions;
 
     private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     // ponytail: unbounded in-memory cache, fine for a personal library (a few hundred covers)
@@ -89,6 +90,31 @@ public class InsightController {
     @GetMapping("/games/steam/owned")
     public List<GameService.OwnedGame> steamOwned() {
         return games.ownedSteam();
+    }
+
+    public record PlayDay(String date, long minutes) {}
+
+    /** Minutes played per day (all games, or one with ?key=), from the sessions SixEyes watched. */
+    @GetMapping("/games/playtime")
+    public List<PlayDay> playtime(@RequestParam(defaultValue = "364") int days, @RequestParam(required = false) String key) {
+        int n = Math.max(7, Math.min(days, 400));
+        java.time.LocalDate first = java.time.LocalDate.now().minusDays(n - 1L);
+        Map<java.time.LocalDate, Long> seconds = new java.util.TreeMap<>();
+        for (int i = 0; i < n; i++) seconds.put(first.plusDays(i), 0L);
+        for (var s : playSessions.findAll()) {
+            if (key != null && !key.equals(s.getGameKey())) continue;
+            // A session that crosses midnight counts toward both days.
+            java.time.LocalDateTime from = s.getStartedAt();
+            java.time.LocalDateTime end = s.getEndedAt() != null ? s.getEndedAt() : s.getLastSeenAt();
+            while (from.isBefore(end)) {
+                java.time.LocalDateTime next = from.toLocalDate().plusDays(1).atStartOfDay();
+                java.time.LocalDateTime stop = end.isBefore(next) ? end : next;
+                long secs = java.time.Duration.between(from, stop).getSeconds();
+                seconds.computeIfPresent(from.toLocalDate(), (d, v) -> v + secs);
+                from = next;
+            }
+        }
+        return seconds.entrySet().stream().map(e -> new PlayDay(e.getKey().toString(), e.getValue() / 60)).toList();
     }
 
     @GetMapping("/games/genres")
