@@ -87,6 +87,19 @@ public class InsightController {
         return games.library();
     }
 
+    @GetMapping("/games/steam/{appId}/achievements")
+    public GameService.Achievements achievements(@PathVariable String appId) {
+        return games.achievements(appId);
+    }
+
+    public record SteamInstallRequest(@NotBlank String appId) {}
+
+    @PostMapping("/games/steam/install")
+    public ResponseEntity<Map<String, String>> installSteam(@jakarta.validation.Valid @RequestBody SteamInstallRequest request) {
+        games.installSteam(request.appId());
+        return ResponseEntity.ok(Map.of("status", "opened"));
+    }
+
     @GetMapping("/games/steam/owned")
     public List<GameService.OwnedGame> steamOwned() {
         return games.ownedSteam();
