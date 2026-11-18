@@ -3,8 +3,8 @@ import { Board } from '@/components/deck/Board'
 import type { Widget } from '@/components/deck/Board'
 import { TorrentDetailDialog } from '@/components/deck/TorrentDetailDialog'
 import {
-  DisksWidget, EventsWidget, GenresWidget, HeatmapWidget, KpiWidget, MapWidget, NetMetricsWidget,
-  PipelineWidget, RecentWidget, SwarmWidget, ThroughputWidget, TreemapWidget, VitalsWidget,
+  DisksWidget, EventsWidget, GameStatsWidget, GenresWidget, HeatmapWidget, KpiWidget, MapWidget, NetMetricsWidget,
+  PipelineWidget, PlayHeatmapWidget, RecentWidget, SwarmWidget, ThroughputWidget, TreemapWidget, VitalsWidget,
 } from '@/components/deck/widgets'
 import { usePolling } from '@/hooks/usePolling'
 import { useSharedTorrents } from '@/hooks/useTorrents'
@@ -24,6 +24,7 @@ export function OverviewPage() {
   const activity = usePolling(() => insightApi.activity(364), 300_000).data
   const library = usePolling(insightApi.games, 60_000).data
   const genres = usePolling(insightApi.genres, 300_000).data
+  const playDays = usePolling(() => insightApi.playtime(364), 120_000).data
 
   const widgets: Widget[] = [
     { id: 'kpi', label: 'Summary', wide: true, render: () => <KpiWidget torrents={torrents} summary={summary} vitals={vitals} library={library} /> },
@@ -37,7 +38,9 @@ export function OverviewPage() {
     { id: 'events', label: 'Events', render: () => <EventsWidget events={events} /> },
     { id: 'vitals', label: 'Vitals', render: () => <VitalsWidget vitals={vitals} /> },
     { id: 'genres', label: 'Genres', wide: true, render: () => <GenresWidget genres={genres} /> },
-    { id: 'heat', label: 'Activity', wide: true, render: () => <HeatmapWidget activity={activity} /> },
+    { id: 'play', label: 'Play activity', wide: true, render: () => <PlayHeatmapWidget days={playDays} /> },
+    { id: 'gamestats', label: 'Game stats', wide: true, render: () => <GameStatsWidget library={library} /> },
+    { id: 'heat', label: 'Traffic', wide: true, render: () => <HeatmapWidget activity={activity} /> },
     { id: 'tree', label: 'Space', wide: true, render: () => <TreemapWidget library={library} /> },
   ]
 
