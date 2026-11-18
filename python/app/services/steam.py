@@ -190,7 +190,7 @@ def owned_not_installed() -> list[dict]:
     """Apps in this machine's Steam libraries that are not installed.
 
     Two local sources, no login needed: localconfig.vdf (every app an account has touched,
-    with playtime) and appcache/librarycache, where the client caches art for every app in
+    with playtime) and the account's librarycache, where the client caches data for apps in
     the library - including games never launched. Both include DLC and tools; the controller
     keeps only real games by asking the Steam store.
     """
@@ -200,9 +200,16 @@ def owned_not_installed() -> list[dict]:
     installed = {g["appId"] for g in library()}
     played = _playtime(root)
     ids = set(played)
-    cache = os.path.join(root, "appcache", "librarycache")
-    if os.path.isdir(cache):
-        ids |= {d for d in os.listdir(cache) if d.isdigit()}
+    # appcache/librarycache is shared by every account on the PC; the per-account one under
+    # userdata/<id>/config/librarycache only holds this account's library.
+    sid = account_id()
+    mine = os.path.join(root, "userdata", str(int(sid) - _STEAMID64_BASE), "config", "librarycache") if sid else ""
+    if os.path.isdir(mine):
+        ids |= {f[:-5] for f in os.listdir(mine) if f.endswith(".json") and f[:-5].isdigit()}
+    else:
+        cache = os.path.join(root, "appcache", "librarycache")
+        if os.path.isdir(cache):
+            ids |= {d for d in os.listdir(cache) if d.isdigit()}
     out = []
     for a in ids:
         if a in installed or a in _NOT_GAMES:
