@@ -6,7 +6,7 @@ import { insightApi } from '@/services/api'
 import { bytes, cleanTitle, countryName, duration, flag, minutes, rate, speed, when } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type {
-  ActivityDay, AppEvent, GameLibrary, Genre, HistoryEntry, MetricsSummary, NetRange, PeerMap, PlayDay, Torrent, Vitals,
+  ActivityDay, AppEvent, GameLibrary, Genre, HistoryEntry, MetricsSummary, NetRange, OwnedGame, PeerMap, PlayDay, Torrent, Vitals,
 } from '@/types'
 import { Bar, Metric, Panel, Pill, SourceBadge, StageTrace, stages } from './primitives'
 import { WorldMap } from './WorldMap'
@@ -478,17 +478,19 @@ export function PlayHeatmapWidget({ days }: { days: PlayDay[] | null }) {
 
 // --- Game stats -------------------------------------------------------------
 
-export function GameStatsWidget({ library }: { library: GameLibrary | null }) {
+export function GameStatsWidget({ library, owned }: { library: GameLibrary | null; owned?: OwnedGame[] | null }) {
   const games = library?.games ?? []
-  const total = games.reduce((s, g) => s + g.playtimeMinutes, 0)
-  const top = [...games].sort((a, b) => b.playtimeMinutes - a.playtimeMinutes).slice(0, 5)
+  // Hours count the whole Steam account, like Steam's own sort: uninstalled games too.
+  const played = [...games, ...(owned ?? []).map(o => ({ key: `owned:${o.appId}`, name: o.name, playtimeMinutes: o.playtimeMinutes, lastPlayed: o.lastPlayed }))]
+  const total = played.reduce((s, g) => s + g.playtimeMinutes, 0)
+  const top = [...played].sort((a, b) => b.playtimeMinutes - a.playtimeMinutes).slice(0, 8)
   const weekOf = (g: (typeof games)[number]) => g.last7DaysHours.reduce((a, b) => a + b, 0)
   const week = [...games].sort((a, b) => weekOf(b) - weekOf(a))[0]
   const never = games.filter(g => g.playtimeMinutes === 0).length
-  const recent = [...games].filter(g => g.lastPlayed).sort((a, b) => b.lastPlayed!.localeCompare(a.lastPlayed!))[0]
+  const recent = [...played].filter(g => g.lastPlayed).sort((a, b) => b.lastPlayed!.localeCompare(a.lastPlayed!))[0]
   const max = Math.max(1, top[0]?.playtimeMinutes ?? 1)
   return (
-    <Panel title="Game stats" note={games.length ? `${games.length} games · ${minutes(total)} played` : undefined}>
+    <Panel title="Game stats" note={played.length ? `${played.length} games · ${minutes(total)} played` : undefined}>
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <Metric label="Most played" value={top[0]?.name ?? '—'} tone="muted" hint={top[0] ? minutes(top[0].playtimeMinutes) : undefined} />
         <Metric label="This week" value={week && weekOf(week) > 0 ? week.name : '—'} tone="muted" hint={week && weekOf(week) > 0 ? `${weekOf(week).toFixed(1)}h` : undefined} />
