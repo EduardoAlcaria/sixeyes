@@ -25,7 +25,7 @@ export function TorrentDetailDialog({ torrentId, onClose, handlers }: {
     <Dialog open={torrentId != null} onOpenChange={open => { if (!open) onClose() }}>
       <DialogContent className="max-h-[90vh] overflow-y-auto bg-popover p-5 sm:max-w-4xl">
         {!t ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">Carregando…</p>
+          <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
         ) : (
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap gap-4">
@@ -52,22 +52,22 @@ export function TorrentDetailDialog({ torrentId, onClose, handlers }: {
                 <Fact label="Availability" value={t.availability != null ? t.availability.toFixed(2) : '—'} />
                 <Fact label="Download" value={rate(e?.downloadRate)} />
                 <Fact label="Upload" value={rate(e?.uploadRate)} />
-                <Fact label="Conexões" value={t.connections ?? '—'} />
-                <Fact label="Nós DHT" value={e?.dhtNodes ?? '—'} />
-                <Fact label="Desperdiçado" value={bytes(t.wasted)} />
+                <Fact label="Connections" value={t.connections ?? '—'} />
+                <Fact label="DHT nodes" value={e?.dhtNodes ?? '—'} />
+                <Fact label="Wasted" value={bytes(t.wasted)} />
                 <Fact label="Ratio" value={t.ratio ?? '—'} />
-                <Fact label="Baixado" value={bytes(t.totalDownloaded)} />
+                <Fact label="Downloaded" value={bytes(t.totalDownloaded)} />
                 <Fact label="Enviado" value={bytes(t.totalUploaded)} />
-                <Fact label="Ativo há" value={duration(e?.activeSeconds)} />
-                <Fact label="Semeando há" value={duration(e?.seedingSeconds)} />
-                <Fact label="Peças" value={e?.numPieces ? `${e.numPieces} × ${bytes(e.pieceSize, 0)}` : '—'} />
-                <Fact label="Vel. média" value={h?.speedSamples ? `${(h.speedSum! / h.speedSamples).toFixed(1)} MB/s` : '—'} />
+                <Fact label="Active for" value={duration(e?.activeSeconds)} />
+                <Fact label="Seeding for" value={duration(e?.seedingSeconds)} />
+                <Fact label="Pieces" value={e?.numPieces ? `${e.numPieces} × ${bytes(e.pieceSize, 0)}` : '—'} />
+                <Fact label="Avg speed" value={h?.speedSamples ? `${(h.speedSum! / h.speedSamples).toFixed(1)} MB/s` : '—'} />
                 <Fact label="Pico" value={h?.peakSpeed ? `${h.peakSpeed.toFixed(1)} MB/s` : '—'} />
-                <Fact label="Pasta" value={<span className="text-xs">{t.savePath ?? '—'}</span>} />
+                <Fact label="Folder" value={<span className="text-xs">{t.savePath ?? '—'}</span>} />
               </div>
             </Panel>
 
-            <Panel title="Peças" note={e?.numPieces ? `${e.numPieces} peças · ${t.progress.toFixed(1)}%` : undefined}>
+            <Panel title="Pieces" note={e?.numPieces ? `${e.numPieces} pieces · ${t.progress.toFixed(1)}%` : undefined}>
               <PieceMap pieces={e?.pieces ?? []} />
             </Panel>
 
@@ -82,7 +82,7 @@ export function TorrentDetailDialog({ torrentId, onClose, handlers }: {
                       <span className="w-12 text-right text-muted-foreground">{f.skipped ? 'pulado' : `${Math.round(f.progress * 100)}%`}</span>
                     </div>
                   ))}
-                  {!e?.files?.length && <p className="text-xs text-faint">Sem dados do engine agora.</p>}
+                  {!e?.files?.length && <p className="text-xs text-faint">No engine data right now.</p>}
                 </div>
               </Panel>
 
@@ -106,7 +106,7 @@ export function TorrentDetailDialog({ torrentId, onClose, handlers }: {
               <div className="max-h-64 overflow-auto">
                 <table className="w-full text-xs [&_td]:px-2 [&_th]:px-2">
                   <thead className="text-left text-[0.64rem] uppercase tracking-[0.05em] text-faint">
-                    <tr><th className="py-1">País</th><th>Cliente</th><th className="text-right">↓</th><th className="text-right">↑</th><th className="text-right">Tem</th></tr>
+                    <tr><th className="py-1">Country</th><th>Client</th><th className="text-right">↓</th><th className="text-right">↑</th><th className="text-right">Has</th></tr>
                   </thead>
                   <tbody className="font-mono">
                     {(e?.peerList ?? []).map((p, i) => (
@@ -128,8 +128,8 @@ export function TorrentDetailDialog({ torrentId, onClose, handlers }: {
               <Panel title="Linha do tempo">
                 <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
                   <Fact label="Adicionado" value={when(h.addedAt)} />
-                  <Fact label="Concluído" value={h.completedAt ? `${when(h.completedAt)} · ${duration(between(h.addedAt, h.completedAt))}` : '—'} />
-                  <Fact label="Verificação" value={h.verifiedFiles != null ? `${h.verifiedFiles} ok · ${h.skippedFiles ?? 0} opc.` : '—'} />
+                  <Fact label="Completed" value={h.completedAt ? `${when(h.completedAt)} · ${duration(between(h.addedAt, h.completedAt))}` : '—'} />
+                  <Fact label="Verification" value={h.verifiedFiles != null ? `${h.verifiedFiles} ok · ${h.skippedFiles ?? 0} optional` : '—'} />
                   <Fact label="Install · exit" value={h.installExitCode != null
                     ? `${duration(between(h.installStartedAt, h.installFinishedAt))} · ${h.installExitCode}` : (h.installStatus ?? '—')} />
                 </div>
