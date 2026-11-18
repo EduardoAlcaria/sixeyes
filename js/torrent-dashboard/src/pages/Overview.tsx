@@ -23,6 +23,7 @@ export function OverviewPage() {
   const history = usePolling(insightApi.history, 15_000).data
   const activity = usePolling(() => insightApi.activity(364), 300_000).data
   const library = usePolling(insightApi.games, 60_000).data
+  const owned = usePolling(insightApi.steamOwned, 300_000).data
   const genres = usePolling(insightApi.genres, 300_000).data
   const playDays = usePolling(() => insightApi.playtime(364), 120_000).data
 
@@ -39,7 +40,7 @@ export function OverviewPage() {
     { id: 'vitals', label: 'Vitals', render: () => <VitalsWidget vitals={vitals} /> },
     { id: 'genres', label: 'Genres', wide: true, render: () => <GenresWidget genres={genres} /> },
     { id: 'play', label: 'Play activity', wide: true, render: () => <PlayHeatmapWidget days={playDays} /> },
-    { id: 'gamestats', label: 'Game stats', wide: true, render: () => <GameStatsWidget library={library} /> },
+    { id: 'gamestats', label: 'Game stats', wide: true, render: () => <GameStatsWidget library={library} owned={owned} /> },
     { id: 'heat', label: 'Traffic', wide: true, render: () => <HeatmapWidget activity={activity} /> },
     { id: 'tree', label: 'Space', wide: true, render: () => <TreemapWidget library={library} /> },
   ]
