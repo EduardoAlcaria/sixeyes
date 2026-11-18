@@ -22,4 +22,8 @@ public class Settings {
     /** Default folder games are installed into; null falls back to install.root. */
     @Column(name = "install_path", length = 4000)
     private String installPath;
+
+    /** The Command Deck layout (order, hidden widgets, saved presets) as JSON, shared by every browser. */
+    @Column(name = "layout", length = 100000)
+    private String layout;
 }
