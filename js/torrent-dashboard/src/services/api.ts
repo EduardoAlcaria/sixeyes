@@ -1,6 +1,6 @@
 import type {
   ActivityDay, AppEvent, BrowseResult, CatalogGame, CatalogPage, CompletedTorrent, DiskInfo,
-  GameLibrary, Genre, HistoryEntry, MetricsSummary, NetRange, NetSeries, PeerMap, Settings,
+  GameLibrary, Genre, HistoryEntry, MetricsSummary, NetRange, NetSeries, OwnedGame, PeerMap, Settings,
   SystemInfo, Torrent, TorrentDetails, Vitals,
 } from '../types'
 
@@ -179,6 +179,7 @@ export const insightApi = {
   vitals: () => request<Vitals>('/system/vitals'),
   games: () => request<GameLibrary>('/games'),
   genres: () => request<Genre[]>('/games/genres'),
+  steamOwned: () => request<OwnedGame[]>('/games/steam/owned'),
   launch: (key: string) =>
     request<{ status: string }>('/games/launch', { method: 'POST', body: JSON.stringify({ key }) }),
 }
