@@ -86,6 +86,11 @@ public class InsightController {
         return games.library();
     }
 
+    @GetMapping("/games/steam/owned")
+    public List<GameService.OwnedGame> steamOwned() {
+        return games.ownedSteam();
+    }
+
     @GetMapping("/games/genres")
     public List<GameService.Genre> genres() {
         return games.genres();
