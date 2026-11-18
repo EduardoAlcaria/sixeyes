@@ -40,6 +40,19 @@ public class TorrentService {
             java.util.regex.Pattern.compile("(?i)xt=urn:btih:([0-9a-f]{40})");
 
     /** Lowercase hex info hash, or null (base32 hashes are never FitGirl's). */
+    /** The magnet's dn= display name, decoded; null when absent. */
+    static String magnetName(String magnet) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("[?&]dn=([^&]+)").matcher(magnet == null ? "" : magnet);
+        if (!m.find()) return null;
+        String name;
+        try {
+            name = java.net.URLDecoder.decode(m.group(1), java.nio.charset.StandardCharsets.UTF_8).trim();
+        } catch (IllegalArgumentException badEscape) {
+            return null;
+        }
+        return name.isEmpty() ? null : name.length() > 255 ? name.substring(0, 255) : name;
+    }
+
     static String infoHash(String magnet) {
         java.util.regex.Matcher m = BTIH.matcher(magnet == null ? "" : magnet);
         return m.find() ? m.group(1).toLowerCase(Locale.ROOT) : null;
@@ -91,10 +104,11 @@ public class TorrentService {
         newTorrent.setInstallPath(installPath != null && !installPath.isBlank() ? installPath.trim() : null);
         newTorrent.setAutoInstall(autoInstall);
         newTorrent.setSkipParts(skipped.isEmpty() ? null : String.join("\n", skipped));
-        // A magnet has no name until its metadata arrives (minutes on a slow swarm); show the
-        // catalog's title meanwhile. The agent replaces it with the torrent's own name.
+        // Until its metadata arrives (minutes on a slow swarm) a magnet only has its dn= name;
+        // the catalog's title if it has none. The agent replaces it with the torrent's name.
+        newTorrent.setTitle(magnetName(magnetLink));
         String hash = infoHash(magnetLink);
-        if (hash != null) {
+        if (newTorrent.getTitle() == null && hash != null) {
             catalogRepository.findByInfoHash(hash).stream().map(com.sixeyes.model.CatalogGame::getTitle)
                     .filter(java.util.Objects::nonNull).findFirst().ifPresent(newTorrent::setTitle);
         }
