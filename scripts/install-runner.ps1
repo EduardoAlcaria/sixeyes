@@ -85,7 +85,7 @@ try {
   # never exits on its own. Same title and almost no CPU across the setup tree for
   # $stallMinutes = stalled: kill the whole tree, music included, and report it.
   $stallMinutes = 20
-  $lastTitle = $null; $lastCpu = 0.0; $quietSince = Get-Date; $nextCheck = (Get-Date).AddMinutes(1)
+  $lastTitle = $null; $lastCpu = 0.0; $lastIo = 0.0; $quietSince = Get-Date; $nextCheck = (Get-Date).AddMinutes(1)
   $stalled = $null
   function Get-SetupTree {
     # setup.exe -> setup.tmp -> unpackers (xtool, srep, precomp...) run from Inno's is-*.tmp folder.
@@ -108,12 +108,17 @@ try {
     if ((Get-Date) -ge $nextCheck) {
       $nextCheck = (Get-Date).AddMinutes(1)
       $tree = @(Get-SetupTree)
-      $cpu = 0.0
-      foreach ($t in $tree) { $cpu += ($t.KernelModeTime + $t.UserModeTime) / 1e7 }
+      $cpu = 0.0; $io = 0.0
+      foreach ($t in $tree) {
+        $cpu += ($t.KernelModeTime + $t.UserModeTime) / 1e7
+        $io += $t.ReadTransferCount + $t.WriteTransferCount
+      }
       $title = (Get-Process setup.tmp -ErrorAction SilentlyContinue | Select-Object -First 1).MainWindowTitle
-      # Under 3 CPU-seconds a minute is the installer's UI and music, not unpacking.
-      if ($title -ne $lastTitle -or ($cpu - $lastCpu) -gt 3) { $quietSince = Get-Date }
-      $lastTitle = $title; $lastCpu = $cpu
+      # Under 3 CPU-seconds a minute is the installer's UI and music, not unpacking. Disk
+      # counts too: short on RAM, srep pages to srep-virtual-memory.tmp and crawls with
+      # almost no CPU - slow, not hung. Over 50 MB of I/O a minute is still working.
+      if ($title -ne $lastTitle -or ($cpu - $lastCpu) -gt 3 -or ($io - $lastIo) -gt 50MB) { $quietSince = Get-Date }
+      $lastTitle = $title; $lastCpu = $cpu; $lastIo = $io
       if (((Get-Date) - $quietSince).TotalMinutes -ge $stallMinutes) {
         $stalled = if ($title) { $title.Trim() } else { 'unknown progress' }
         foreach ($t in $tree) { Stop-Process -Id $t.ProcessId -Force -ErrorAction SilentlyContinue }
@@ -123,7 +128,8 @@ try {
   }
 
   if ($stalled) {
-    Write-Result 96 "Installer stalled at $stalled for $stallMinutes minutes with no CPU activity - stopped it. Close heavy apps (RAM) and install again."
+    $freeGb = [math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB, 1)
+    Write-Result 96 "Installer stalled at $stalled for $stallMinutes minutes with no CPU or disk activity - stopped it ($freeGb GB RAM free). Close heavy apps and install again."
     exit 96
   }
 
