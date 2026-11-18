@@ -122,7 +122,29 @@ public class IgdbService {
         return cleaned.isBlank() ? title : cleaned;
     }
 
-    private Integer findBestMatch(String title) {
+    /**
+     * Titles to try, most specific first. IGDB search returns nothing for some repack names
+     * ("Mass Effect 3: Legendary Edition") yet finds the shorter one ("Mass Effect 3").
+     */
+    public List<String> searchTitles(String title) {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        out.add(title);
+        out.add(title.replaceAll("(?i)[\\s:–—-]+[^:–—-]*\\b(edition|remaster(ed)?|collection|bundle|cut)\\b.*$", "").trim());
+        int colon = title.indexOf(':');
+        if (colon > 2) out.add(title.substring(0, colon).trim());
+        out.removeIf(String::isBlank);
+        return List.copyOf(out);
+    }
+
+    private Integer findBestMatch(String fullTitle) {
+        for (String title : searchTitles(fullTitle)) {
+            Integer id = findBestMatchFor(title);
+            if (id != null) return id;
+        }
+        return null;
+    }
+
+    private Integer findBestMatchFor(String title) {
         String safe = title.replace("\"", "\\\"");
         List<Map> results = igdbPost("games",
                 "search \"" + safe + "\"; fields id, name; limit 10;");
