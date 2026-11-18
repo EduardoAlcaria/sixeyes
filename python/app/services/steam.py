@@ -174,18 +174,47 @@ def library(force: bool = False) -> list[dict]:
 
 
 def owned_not_installed() -> list[dict]:
-    """Apps this machine's Steam accounts have in their library but that are not installed.
+    """Apps in this machine's Steam libraries that are not installed.
 
-    localconfig.vdf lists every app the account has touched, owned DLC and tools included;
-    the controller filters those out by asking the Steam store which ids are real games.
+    Two local sources, no login needed: localconfig.vdf (every app an account has touched,
+    with playtime) and appcache/librarycache, where the client caches art for every app in
+    the library - including games never launched. Both include DLC and tools; the controller
+    keeps only real games by asking the Steam store.
     """
     root = steam_root()
     if not root:
         return []
     installed = {g["appId"] for g in library()}
-    return [{"appId": a, "playtimeMinutes": p["minutes"], "lastPlayed": p["lastPlayed"] or None}
-            for a, p in _playtime(root).items()
-            if a.isdigit() and a not in installed and a not in _NOT_GAMES]
+    played = _playtime(root)
+    ids = set(played)
+    cache = os.path.join(root, "appcache", "librarycache")
+    if os.path.isdir(cache):
+        ids |= {d for d in os.listdir(cache) if d.isdigit()}
+    out = []
+    for a in ids:
+        if a in installed or a in _NOT_GAMES:
+            continue
+        p = played.get(a, {})
+        out.append({"appId": a, "playtimeMinutes": p.get("minutes", 0), "lastPlayed": p.get("lastPlayed") or None})
+    return out
+
+
+def account_id() -> str | None:
+    """SteamID64 of the account that last signed in here (loginusers.vdf MostRecent)."""
+    root = steam_root()
+    if not root:
+        return None
+    users = _get(_read(os.path.join(root, "config", "loginusers.vdf")), "users") or {}
+    ids = [k for k, v in users.items() if k.isdigit() and isinstance(v, dict)]
+    recent = [k for k in ids if str(_get(users[k], "MostRecent") or "0") == "1"]
+    return (recent or ids or [None])[0]
+
+
+def install(app_id: str) -> None:
+    """Opens Steam's own install dialog for the app on this PC."""
+    if not str(app_id).isdigit():
+        raise ValueError("invalid app id")
+    os.startfile(f"steam://install/{int(app_id)}")  # noqa - Windows only, like the agent
 
 
 def launch(app_id: str) -> None:
