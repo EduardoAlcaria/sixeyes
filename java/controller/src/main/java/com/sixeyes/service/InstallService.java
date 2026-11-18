@@ -4,6 +4,8 @@ import com.sixeyes.dto.response.InstallJob;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -126,26 +128,93 @@ public class InstallService {
             int exit = elevatedTask.isBlank()
                     ? runDirect(setup.get(), saveRoot, target)
                     : runElevated(setup.get(), target);
-            history.installFinished(job.id(), exit, exit == 0 ? target.toString() : null);
-            if (exit == TIMED_OUT) {
-                fail(job, "Installer timed out after " + timeoutMinutes + " minutes");
-            } else if (exit == 0) {
-                torrentService.markInstalled(job.id(), target.toString());
-                torrentService.updateInstallStatus(job.id(), "INSTALLED", "Installed to " + target);
-                log.info("Installed [{}] -> {}", job.id(), target);
-            } else if (exit == ELEVATION_REFUSED) {
-                fail(job, "The elevated installer task refused the job (setup outside the download folders)");
-            } else if (exit == ELEVATION_NEEDED) {
-                fail(job, "setup.exe needs administrator rights - run scripts/register-installer.ps1 once as admin");
-            } else {
-                fail(job, "setup.exe exited with code " + exit);
-            }
+            finishInstall(job, exit, target);
         } catch (IOException e) {
             fail(job, "Could not start installer: " + e.getMessage());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             fail(job, "Install interrupted");
         }
+    }
+
+    /** Records how a finished setup went; shared by a normal run and one resumed after a restart. */
+    private void finishInstall(InstallJob job, int exit, Path target) {
+        history.installFinished(job.id(), exit, exit == 0 ? target.toString() : null);
+        if (exit == TIMED_OUT) {
+            fail(job, "Installer timed out after " + timeoutMinutes + " minutes");
+        } else if (exit == 0) {
+            torrentService.markInstalled(job.id(), target.toString());
+            torrentService.updateInstallStatus(job.id(), "INSTALLED", "Installed to " + target);
+            log.info("Installed [{}] -> {}", job.id(), target);
+        } else if (exit == ELEVATION_REFUSED) {
+            fail(job, "The elevated installer task refused the job (setup outside the download folders)");
+        } else if (exit == ELEVATION_NEEDED) {
+            fail(job, "setup.exe needs administrator rights - run scripts/register-installer.ps1 once as admin");
+        } else {
+            fail(job, "setup.exe exited with code " + exit);
+        }
+    }
+
+    /** The elevated runner outlives the controller, so a restart mid-install picks the wait back up. */
+    @EventListener(ApplicationReadyEvent.class)
+    public void resumeInterrupted() {
+        if (!enabled || elevatedTask.isBlank()) return;
+        for (InstallJob job : torrentService.getInterruptedInstalls()) {
+            Thread t = new Thread(() -> resume(job), "install-resume-" + job.id());
+            t.setDaemon(true);
+            t.start();
+        }
+    }
+
+    private void resume(InstallJob job) {
+        if (!running.compareAndSet(false, true)) return;
+        try {
+            Path target = Path.of(job.installPath()).resolve(safeName(job)).normalize();
+            String queuedDir = json.readTree(Files.readString(Path.of(jobFile))).path("dir").asText("");
+            if (!target.toString().equalsIgnoreCase(queuedDir)) {
+                fail(job, "Install was interrupted by a restart");
+                return;
+            }
+            log.info("Resuming wait for install [{}] -> {}", job.id(), target);
+            finishInstall(job, awaitResult(Path.of(jobFile + ".result"), true), target);
+        } catch (Exception e) {
+            fail(job, "Could not resume install: " + e.getMessage());
+        } finally {
+            running.set(false);
+        }
+    }
+
+    private boolean taskRunning() {
+        try {
+            Process p = new ProcessBuilder("schtasks", "/query", "/tn", elevatedTask, "/fo", "csv", "/nh")
+                    .redirectErrorStream(true).start();
+            String out = new String(p.getInputStream().readAllBytes());
+            p.waitFor(10, TimeUnit.SECONDS);
+            return out.contains("Running");
+        } catch (Exception e) {
+            return true; // cannot tell: keep waiting rather than fail a good install
+        }
+    }
+
+    /** Polls for the runner's result file. When resuming, gives up if the task is no longer running. */
+    private int awaitResult(Path result, boolean resuming) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.MINUTES.toNanos(timeoutMinutes);
+        int idleChecks = 0;
+        while (System.nanoTime() < deadline) {
+            if (Files.exists(result)) {
+                try {
+                    // A UTF-8 BOM from a PowerShell writer would make readTree throw; strip it.
+                    String body = Files.readString(result).replace("﻿", "");
+                    return json.readTree(body).path("exitCode").asInt(-2);
+                } catch (IOException partialWrite) {
+                    // Runner still writing; read again next tick.
+                }
+            } else if (resuming && !taskRunning() && ++idleChecks >= 2) {
+                return -2; // runner is gone and left no result
+            }
+            Thread.sleep(2000);
+        }
+        return TIMED_OUT;
     }
 
     private static final int TIMED_OUT = -1;
@@ -195,20 +264,7 @@ public class InstallService {
             throw new IOException("could not start task '" + elevatedTask + "': " + out.trim());
         }
 
-        long deadline = System.nanoTime() + TimeUnit.MINUTES.toNanos(timeoutMinutes);
-        while (System.nanoTime() < deadline) {
-            if (Files.exists(result)) {
-                try {
-                    // A UTF-8 BOM from a PowerShell writer would make readTree throw; strip it.
-                    String body = Files.readString(result).replace("﻿", "");
-                    return json.readTree(body).path("exitCode").asInt(-2);
-                } catch (IOException partialWrite) {
-                    // Runner still writing; read again next tick.
-                }
-            }
-            Thread.sleep(2000);
-        }
-        return TIMED_OUT;
+        return awaitResult(result, false);
     }
 
     @Value("${install.elevated-task:}")
