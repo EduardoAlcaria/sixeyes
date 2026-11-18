@@ -89,9 +89,33 @@ public class IgdbService {
         applySteamPrice(game, igdbId);
     }
 
+    private final java.util.Map<String, List<String>> suggestCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * IGDB's own search is typo tolerant ("mass efect" finds Mass Effect), which a SQL LIKE
+     * never is. Used to turn a misspelt query into real game names to look up in the catalog.
+     */
+    public List<String> suggestNames(String query) {
+        if (clientId.isBlank() || clientSecret.isBlank() || query == null || query.isBlank()) return List.of();
+        String key = query.trim().toLowerCase();
+        List<String> hit = suggestCache.get(key);
+        if (hit != null) return hit;
+        try {
+            ensureToken();
+            List<Map> results = igdbPost("games", "search \"" + key.replace("\"", "") + "\"; fields name; limit 8;");
+            List<String> names = results == null ? List.of() : results.stream()
+                    .map(g -> g.get("name")).filter(java.util.Objects::nonNull).map(Object::toString).toList();
+            suggestCache.put(key, names);
+            return names;
+        } catch (Exception e) {
+            log.debug("IGDB suggestions unavailable for '{}': {}", query, e.getMessage());
+            return List.of();
+        }
+    }
+
     // ── private helpers ──────────────────────────────────────────────────────
 
-    String stripSuffixes(String title) {
+    public String stripSuffixes(String title) {
         // FitGirl: "Name – v1.2 + 3 DLCs" / "Name, v1.0.4" - the game name is the part before.
         String head = title.split("\\s+[–—]\\s+|,\\s*v\\d", 2)[0];
         String cleaned = TITLE_STRIP.matcher(head).replaceAll("").trim();
