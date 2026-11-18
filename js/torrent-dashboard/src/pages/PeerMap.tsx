@@ -34,11 +34,11 @@ export function PeerMapPage() {
       )}
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        <Metric label="Peers" value={data?.total ?? '—'} tone="muted" hint={data?.unknown ? `${data.unknown} sem país` : undefined} />
-        <Metric label="Países" value={rows.length} tone="muted" />
+        <Metric label="Peers" value={data?.total ?? '—'} tone="muted" hint={data?.unknown ? `${data.unknown} unknown country` : undefined} />
+        <Metric label="Countries" value={rows.length} tone="muted" />
         <Metric label="Maior swarm" value={rows[0] ? `${flag(rows[0][0])} ${rows[0][1].peers}` : '—'} tone="muted"
           hint={rows[0] ? countryName(rows[0][0]) : undefined} />
-        <Metric label="Mais rápido" value={fastest ? `${flag(fastest[0])} ${rate(fastest[1].downSpeed)}` : '—'} tone="muted"
+        <Metric label="Fastest" value={fastest ? `${flag(fastest[0])} ${rate(fastest[1].downSpeed)}` : '—'} tone="muted"
           hint={fastest ? countryName(fastest[0]) : undefined} />
       </div>
 
@@ -47,11 +47,11 @@ export function PeerMapPage() {
         <p className="mt-1 text-right text-[0.62rem] text-faint">IP Geolocation by DB-IP</p>
       </Panel>
 
-      <Panel title="Por país">
+      <Panel title="By country">
         <div className="overflow-x-auto">
           <table className="w-full text-[0.84rem] [&_td]:px-2 [&_th]:px-2">
             <thead className="text-left text-[0.64rem] uppercase tracking-[0.05em] text-faint">
-              <tr><th className="py-1.5">País</th><th className="text-right">Peers</th><th className="text-right">Download</th><th className="text-right">Upload</th></tr>
+              <tr><th className="py-1.5">Country</th><th className="text-right">Peers</th><th className="text-right">Download</th><th className="text-right">Upload</th></tr>
             </thead>
             <tbody className="font-mono">
               {rows.map(([code, s]) => (
@@ -64,7 +64,7 @@ export function PeerMapPage() {
               ))}
             </tbody>
           </table>
-          {!rows.length && <p className="py-6 text-center text-xs text-faint">Nenhum peer conectado agora.</p>}
+          {!rows.length && <p className="py-6 text-center text-xs text-faint">No peers connected right now.</p>}
         </div>
       </Panel>
     </>
