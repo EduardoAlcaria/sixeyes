@@ -37,10 +37,10 @@ export function ShelfPage() {
     setLaunching(g.key)
     try {
       await insightApi.launch(g.key)
-      toast.success(`Abrindo ${g.name}`)
+      toast.success(`Opening ${g.name}`)
       setTimeout(refresh, 20_000)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Não abriu')
+      toast.error(e instanceof Error ? e.message : 'Could not open')
     } finally {
       setLaunching(null)
     }
@@ -53,25 +53,25 @@ export function ShelfPage() {
     <>
       <div className="flex flex-wrap items-baseline gap-3">
         <h1 className="text-2xl font-extrabold">Shelf</h1>
-        <span className="text-sm text-muted-foreground">tudo que está instalado, de qualquer fonte</span>
+        <span className="text-sm text-muted-foreground">everything installed, from any source</span>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        <Metric label="Jogos" value={games.length} tone="muted"
-          hint={`${games.filter(g => g.source === 'STEAM').length} Steam · ${games.filter(g => g.source !== 'STEAM').length} outros`} />
-        <Metric label="Tempo total" value={minutes(totalMinutes)} tone="muted" />
-        <Metric label="Últimos 7 dias" value={`${week.toFixed(1)}h`} tone="muted" />
-        <Metric label="Espaço usado" value={bytes(games.reduce((s, g) => s + (g.sizeBytes ?? 0), 0), 0)} tone="muted"
-          hint={data?.installFree != null ? `${bytes(data.installFree, 0)} livre em ${data.installRoot}` : undefined} />
+        <Metric label="Games" value={games.length} tone="muted"
+          hint={`${games.filter(g => g.source === 'STEAM').length} Steam · ${games.filter(g => g.source !== 'STEAM').length} other`} />
+        <Metric label="Total time" value={minutes(totalMinutes)} tone="muted" />
+        <Metric label="Last 7 days" value={`${week.toFixed(1)}h`} tone="muted" />
+        <Metric label="Space used" value={bytes(games.reduce((s, g) => s + (g.sizeBytes ?? 0), 0), 0)} tone="muted"
+          hint={data?.installFree != null ? `${bytes(data.installFree, 0)} free on ${data.installRoot}` : undefined} />
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
         <label className="flex min-w-[180px] items-center gap-2 rounded-full border bg-card px-3 py-1 text-muted-foreground">
           <Search className="size-3.5" />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar jogo…" aria-label="Buscar jogo"
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search games…" aria-label="Search games"
             className="w-full bg-transparent text-[0.76rem] text-foreground outline-none" />
         </label>
-        {([['all', 'Tudo'], ['TORRENT', 'FitGirl'], ['STEAM', 'Steam'], ['LOCAL', 'Pasta local'], ['never', 'Nunca jogados']] as [Filter, string][]).map(([f, label]) => (
+        {([['all', 'Tudo'], ['TORRENT', 'FitGirl'], ['STEAM', 'Steam'], ['LOCAL', 'Local folder'], ['never', 'Nunca jogados']] as [Filter, string][]).map(([f, label]) => (
           <button key={f} type="button" onClick={() => setFilter(f)}
             className={cn('rounded-full border px-3 py-1 text-[0.76rem]', filter === f ? 'border-primary bg-primary/20 text-foreground' : 'text-muted-foreground')}>
             {label}
@@ -79,17 +79,17 @@ export function ShelfPage() {
         ))}
         <select value={sort} onChange={e => setSort(e.target.value as Sort)} aria-label="Ordenar"
           className="ml-auto rounded-full border bg-card px-3 py-1 text-[0.76rem] text-muted-foreground">
-          <option value="recent">Jogados recentemente</option>
-          <option value="played">Mais jogados</option>
-          <option value="size">Maiores</option>
-          <option value="name">Nome</option>
+          <option value="recent">Recently played</option>
+          <option value="played">Most played</option>
+          <option value="size">Largest</option>
+          <option value="name">Name</option>
         </select>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
         {shown.map(g => (
           <div key={g.key} className="overflow-hidden rounded-[calc(var(--radius)*0.6)] border bg-card">
-            <button type="button" onClick={() => setOpen(g)} className="block w-full text-left" aria-label={`Detalhes de ${g.name}`}>
+            <button type="button" onClick={() => setOpen(g)} className="block w-full text-left" aria-label={`Details of ${g.name}`}>
               <Cover className="aspect-[2/3] w-full" seed={g.name}
                 sources={g.source === 'STEAM' ? steamArt(g.key.slice(6)) : [g.coverUrl]}>
                 <span className="absolute left-2 top-2"><SourceBadge source={g.source} /></span>
@@ -101,9 +101,9 @@ export function ShelfPage() {
             <div className="flex items-center justify-between gap-2 px-2.5 py-2">
               <div className="min-w-0 font-mono text-[0.68rem] text-faint">
                 <div>{bytes(g.sizeBytes, 0)}</div>
-                <div>{g.playtimeMinutes ? minutes(g.playtimeMinutes) : 'nunca'} · {when(g.lastPlayed)}</div>
+                <div>{g.playtimeMinutes ? minutes(g.playtimeMinutes) : 'never'} · {when(g.lastPlayed)}</div>
               </div>
-              <button type="button" disabled={launching === g.key} onClick={() => launch(g)} aria-label={`Jogar ${g.name}`}
+              <button type="button" disabled={launching === g.key} onClick={() => launch(g)} aria-label={`Play ${g.name}`}
                 className={cn('grid size-8 shrink-0 place-items-center rounded-full disabled:opacity-50',
                   g.source === 'STEAM' ? 'bg-[#66c0f4] text-[#0b1b2b]' : 'bg-ok text-[#06231a]')}>
                 <Play className="size-3.5" />
@@ -114,7 +114,7 @@ export function ShelfPage() {
       </div>
       {!shown.length && (
         <p className="py-10 text-center text-sm text-faint">
-          {data ? 'Nada instalado aqui ainda.' : 'Carregando…'}
+          {data ? 'Nothing installed here yet.' : 'Loading…'}
         </p>
       )}
 
