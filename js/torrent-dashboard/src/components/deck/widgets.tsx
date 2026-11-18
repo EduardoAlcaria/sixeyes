@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { usePolling } from '@/hooks/usePolling'
 import { insightApi } from '@/services/api'
-import { bytes, cleanTitle, countryName, duration, flag, rate, speed, when } from '@/lib/format'
+import { bytes, cleanTitle, countryName, duration, flag, minutes, rate, speed, when } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type {
-  ActivityDay, AppEvent, GameLibrary, Genre, HistoryEntry, MetricsSummary, NetRange, PeerMap, Torrent, Vitals,
+  ActivityDay, AppEvent, GameLibrary, Genre, HistoryEntry, MetricsSummary, NetRange, PeerMap, PlayDay, Torrent, Vitals,
 } from '@/types'
 import { Bar, Metric, Panel, Pill, SourceBadge, StageTrace, stages } from './primitives'
 import { WorldMap } from './WorldMap'
@@ -396,7 +396,7 @@ export function HeatmapWidget({ activity }: { activity: ActivityDay[] | null }) 
         </div>
       </div>
       <div className="mt-2 flex items-center justify-end gap-1 text-[0.66rem] text-faint">
-        menos {shade.map(s => <i key={s} className="inline-block size-2.5 rounded-[2px] border" style={{ background: s }} />)} mais
+        less {shade.map(s => <i key={s} className="inline-block size-2.5 rounded-[2px] border" style={{ background: s }} />)} more
       </div>
     </Panel>
   )
@@ -410,7 +410,7 @@ export function TreemapWidget({ library }: { library: GameLibrary | null }) {
   const total = games.reduce((s, g) => s + g.sizeBytes!, 0) + (library?.installFree ?? 0)
   return (
     <Panel title="Space per game" note={library ? `${bytes(games.reduce((s, g) => s + g.sizeBytes!, 0), 0)} in ${games.length} games` : undefined}>
-      {library?.sizesComputing && <p className="mb-2 text-xs text-faint">Calculando tamanhos das pastas…</p>}
+      {library?.sizesComputing && <p className="mb-2 text-xs text-faint">Calculating folder sizes…</p>}
       <div className="flex flex-wrap gap-1">
         {games.map(g => {
           const share = g.sizeBytes! / Math.max(total, 1)
@@ -432,6 +432,71 @@ export function TreemapWidget({ library }: { library: GameLibrary | null }) {
             <b>Livre</b><span className="font-mono">{bytes(library.installFree, 0)}</span>
           </div>
         )}
+      </div>
+    </Panel>
+  )
+}
+
+// --- Play activity ----------------------------------------------------------
+
+/** Same grid as the traffic heatmap, but one square per day of play. */
+export function PlayHeatmapWidget({ days }: { days: PlayDay[] | null }) {
+  const list = days ?? []
+  const max = Math.max(1, ...list.map(d => d.minutes))
+  const lead = list.length ? new Date(list[0].date + 'T00:00').getDay() : 0
+  const total = list.reduce((s, d) => s + d.minutes, 0)
+  const active = list.filter(d => d.minutes > 0).length
+  const level = (m: number) => (m <= 0 ? 0 : Math.min(4, Math.ceil((m / max) * 4)))
+  const shade = ['var(--background)', 'color-mix(in oklch, var(--ok) 25%, var(--card))',
+    'color-mix(in oklch, var(--ok) 50%, var(--card))', 'color-mix(in oklch, var(--ok) 75%, var(--card))', 'var(--ok)']
+  // Longest run of consecutive days with play, ending anywhere in the window.
+  let best = 0
+  let run = 0
+  for (const d of list) { run = d.minutes > 0 ? run + 1 : 0; best = Math.max(best, run) }
+  return (
+    <Panel title="Play activity" note={`${minutes(total)} · ${active} days played · best streak ${best}d`}>
+      <div className="overflow-x-auto pb-1">
+        <div className="grid min-w-max grid-flow-col gap-[3px]" style={{ gridTemplateRows: 'repeat(7, 12px)', gridAutoColumns: 'minmax(12px, 1fr)' }}>
+          {Array.from({ length: lead }).map((_, i) => <span key={`pad${i}`} />)}
+          {list.map(d => (
+            <span key={d.date} className="rounded-[2px]"
+              style={{ background: level(d.minutes) ? shade[level(d.minutes)] : 'var(--muted)' }}
+              title={`${new Date(d.date + 'T00:00').toLocaleDateString('en-GB')} · ${d.minutes ? minutes(d.minutes) : 'no play'}`} />
+          ))}
+        </div>
+      </div>
+      <p className="mt-2 text-[0.7rem] text-faint">Counts only sessions SixEyes saw running, from the day it started watching.</p>
+    </Panel>
+  )
+}
+
+// --- Game stats -------------------------------------------------------------
+
+export function GameStatsWidget({ library }: { library: GameLibrary | null }) {
+  const games = library?.games ?? []
+  const total = games.reduce((s, g) => s + g.playtimeMinutes, 0)
+  const top = [...games].sort((a, b) => b.playtimeMinutes - a.playtimeMinutes).slice(0, 5)
+  const weekOf = (g: (typeof games)[number]) => g.last7DaysHours.reduce((a, b) => a + b, 0)
+  const week = [...games].sort((a, b) => weekOf(b) - weekOf(a))[0]
+  const never = games.filter(g => g.playtimeMinutes === 0).length
+  const recent = [...games].filter(g => g.lastPlayed).sort((a, b) => b.lastPlayed!.localeCompare(a.lastPlayed!))[0]
+  const max = Math.max(1, top[0]?.playtimeMinutes ?? 1)
+  return (
+    <Panel title="Game stats" note={games.length ? `${games.length} games · ${minutes(total)} played` : undefined}>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <Metric label="Most played" value={top[0]?.name ?? '—'} tone="muted" hint={top[0] ? minutes(top[0].playtimeMinutes) : undefined} />
+        <Metric label="This week" value={week && weekOf(week) > 0 ? week.name : '—'} tone="muted" hint={week && weekOf(week) > 0 ? `${weekOf(week).toFixed(1)}h` : undefined} />
+        <Metric label="Last played" value={recent?.name ?? '—'} tone="muted" hint={recent ? when(recent.lastPlayed) : undefined} />
+        <Metric label="Never played" value={never} tone="muted" hint={games.length ? `of ${games.length}` : undefined} />
+      </div>
+      <div className="mt-3 flex flex-col gap-1.5">
+        {top.filter(g => g.playtimeMinutes > 0).map(g => (
+          <div key={g.key} className="flex items-center gap-2 text-[0.78rem]">
+            <span className="w-40 shrink-0 truncate text-muted-foreground">{g.name}</span>
+            <Bar value={(g.playtimeMinutes / max) * 100} tone="flow" className="flex-1" />
+            <span className="w-14 shrink-0 text-right font-mono text-[0.72rem]">{minutes(g.playtimeMinutes)}</span>
+          </div>
+        ))}
       </div>
     </Panel>
   )
