@@ -19,6 +19,9 @@ session:
   cookie-secure: ${SESSION_COOKIE_SECURE:false}
 
 logging:
+  # start.ps1 runs hidden at logon, so the console is lost: keep a rolling file (gitignored).
+  file:
+    name: data/controller.log
   level:
     com.sixeyes: DEBUG
     org.hibernate.SQL: WARN
