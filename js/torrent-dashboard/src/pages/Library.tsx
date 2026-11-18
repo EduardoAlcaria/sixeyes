@@ -105,6 +105,15 @@ export function LibraryPage() {
   const totalDown = torrents.reduce((s, t) => s + (t.totalDownloaded ?? 0), 0)
   const totalUp = torrents.reduce((s, t) => s + (t.totalUploaded ?? 0), 0)
 
+  const installSteam = async (appId: string, name: string) => {
+    try {
+      await insightApi.steamInstall(appId)
+      toast.success(`Steam is opening the install for ${name}`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not start the install')
+    }
+  }
+
   const launch = async (g: Game) => {
     setLaunching(g.key)
     try {
@@ -251,10 +260,18 @@ export function LibraryPage() {
                 </Cover>
                 <div className="flex items-center justify-between gap-2 px-2.5 py-2">
                   <span className="font-mono text-[0.68rem] text-faint">{g.playtimeMinutes ? minutes(g.playtimeMinutes) : 'never played'}</span>
-                  <Link to={`/catalog?q=${encodeURIComponent(g.name)}`} aria-label={`Find ${g.name} in the catalog`}
-                    className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
-                    <Download className="size-3.5" />
-                  </Link>
+                  <div className="flex shrink-0 gap-1.5">
+                    <button type="button" onClick={() => installSteam(g.appId, g.name)} aria-label={`Install ${g.name} with Steam`}
+                      title="Install with Steam (opens Steam's install dialog on the PC)"
+                      className="grid size-8 place-items-center rounded-full bg-[#66c0f4] text-[#0b1b2b]">
+                      <Download className="size-3.5" />
+                    </button>
+                    <Link to={`/catalog?q=${encodeURIComponent(g.name)}`} aria-label={`Find ${g.name} in the catalog`}
+                      title="Find a repack in the catalog"
+                      className="grid size-8 place-items-center rounded-full bg-primary text-primary-foreground">
+                      <Search className="size-3.5" />
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}
