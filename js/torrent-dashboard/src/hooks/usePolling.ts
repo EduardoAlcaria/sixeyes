@@ -15,7 +15,7 @@ export function usePolling<T>(fetcher: () => Promise<T>, ms: number, deps: unkno
       setData(await fetcherRef.current())
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha ao carregar')
+      setError(e instanceof Error ? e.message : 'Failed to load')
     }
   }, [])
 
