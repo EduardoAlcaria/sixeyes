@@ -35,4 +35,8 @@ public interface CatalogGameRepository extends JpaRepository<CatalogGame, Long> 
 
     @Query("SELECT g FROM CatalogGame g WHERE LOWER(g.title) LIKE LOWER(CONCAT('%', :q, '%')) ORDER BY g.postedAt DESC")
     Page<CatalogGame> searchByTitle(@Param("q") String q, Pageable pageable);
+
+    /** Light projection for the in-memory fuzzy index: [id, title] per game. */
+    @Query("SELECT g.id, g.title FROM CatalogGame g")
+    List<Object[]> findIdsAndTitles();
 }
