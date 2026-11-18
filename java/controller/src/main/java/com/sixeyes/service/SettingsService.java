@@ -36,6 +36,30 @@ public class SettingsService {
         return getSettings();
     }
 
+    private static final int MAX_LAYOUT_CHARS = 100_000;
+
+    /** Raw layout JSON, or "{}" before anything has been saved. */
+    public String getLayout() {
+        String l = getOrCreate().getLayout();
+        return l == null || l.isBlank() ? "{}" : l;
+    }
+
+    public void saveLayout(String json) {
+        if (json == null || json.length() > MAX_LAYOUT_CHARS) {
+            throw new IllegalArgumentException("Layout is too large");
+        }
+        try {
+            if (!new com.fasterxml.jackson.databind.ObjectMapper().readTree(json).isObject()) {
+                throw new IllegalArgumentException("Layout must be a JSON object");
+            }
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalArgumentException("Layout is not valid JSON");
+        }
+        Settings s = getOrCreate();
+        s.setLayout(json);
+        settingsRepository.save(s);
+    }
+
     public String getDownloadPath() {
         return getOrCreate().getDownloadPath();
     }
