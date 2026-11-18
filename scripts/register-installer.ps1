@@ -28,7 +28,7 @@ $runner = Join-Path $PSScriptRoot 'install-runner.ps1'
 New-Item -ItemType Directory -Force -Path (Split-Path $JobFile) | Out-Null
 
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument (
-  "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$runner`" " +
+  "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$runner`" " +
   "-JobFile `"$JobFile`" -AllowedRoots `"$AllowedRoots`"")
 $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) `
   -LogonType Interactive -RunLevel Highest
