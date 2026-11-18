@@ -91,6 +91,13 @@ public class TorrentService {
         newTorrent.setInstallPath(installPath != null && !installPath.isBlank() ? installPath.trim() : null);
         newTorrent.setAutoInstall(autoInstall);
         newTorrent.setSkipParts(skipped.isEmpty() ? null : String.join("\n", skipped));
+        // A magnet has no name until its metadata arrives (minutes on a slow swarm); show the
+        // catalog's title meanwhile. The agent replaces it with the torrent's own name.
+        String hash = infoHash(magnetLink);
+        if (hash != null) {
+            catalogRepository.findByInfoHash(hash).stream().map(com.sixeyes.model.CatalogGame::getTitle)
+                    .filter(java.util.Objects::nonNull).findFirst().ifPresent(newTorrent::setTitle);
+        }
         if (autoInstall && !isFitgirlRepack(newTorrent)) {
             throw new IllegalArgumentException("Auto-install is only available for FitGirl repacks");
         }
