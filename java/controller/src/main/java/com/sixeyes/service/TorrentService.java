@@ -120,8 +120,43 @@ public class TorrentService {
         return torrentRepository.findAll().stream()
                 .peek(this::isFitgirlRepack)
                 .map(t -> TorrentResponse.from(t, coverFor(t),
-                        "VERIFYING".equals(t.getInstallStatus()) ? verifier.progressPercent() : null))
+                        "VERIFYING".equals(t.getInstallStatus()) ? verifier.progressPercent()
+                                : "INSTALLING".equals(t.getInstallStatus()) ? setupProgress().percent() : null,
+                        "INSTALLING".equals(t.getInstallStatus()) ? setupProgress().eta() : null))
                 .toList();
+    }
+
+    private record SetupProgress(Integer percent, String eta, long at) {}
+    private volatile SetupProgress setupCache = new SetupProgress(null, null, 0);
+    private static final java.util.regex.Pattern SETUP_TITLE =
+            java.util.regex.Pattern.compile("(\\d+(?:[.,]\\d+)?)%\\s+(\\d+:\\d\\d:\\d\\d)");
+
+    /**
+     * Inno Setup prints "4.8%  01:22:39" (progress and time left) in its window title even
+     * when run silently, so that is the only progress the installer ever reports. Read from
+     * the title and cached, because starting PowerShell on every 3 s poll would be wasteful.
+     */
+    private SetupProgress setupProgress() {
+        SetupProgress c = setupCache;
+        if (System.currentTimeMillis() - c.at() < 5000) return c;
+        Integer pct = null;
+        String eta = null;
+        try {
+            Process p = new ProcessBuilder("powershell", "-NoProfile", "-Command",
+                    "(Get-Process setup.tmp -ErrorAction SilentlyContinue | ForEach-Object MainWindowTitle) -join ' '")
+                    .redirectErrorStream(true).start();
+            String out = new String(p.getInputStream().readAllBytes());
+            p.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
+            java.util.regex.Matcher m = SETUP_TITLE.matcher(out);
+            if (m.find()) {
+                pct = (int) Math.floor(Double.parseDouble(m.group(1).replace(',', '.')));
+                eta = m.group(2);
+            }
+        } catch (Exception e) {
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+        }
+        setupCache = new SetupProgress(pct, eta, System.currentTimeMillis());
+        return setupCache;
     }
 
     /** The catalog's art for this exact torrent, so a card can show the game while it downloads. */
@@ -226,6 +261,17 @@ public class TorrentService {
     public List<InstallJob> getInstallQueue() {
         String defaultInstall = settingsService.getInstallPath();
         return torrentRepository.findByInstallStatus("REQUESTED").stream()
+                .map(t -> new InstallJob(t.getId(), t.getTitle(), t.getSavePath(),
+                        t.getInstallPath() != null ? t.getInstallPath() : defaultInstall,
+                        isFitgirlRepack(t)))
+                .toList();
+    }
+
+    /** Installs that were running when the controller last stopped. */
+    @Transactional(readOnly = true)
+    public List<InstallJob> getInterruptedInstalls() {
+        String defaultInstall = settingsService.getInstallPath();
+        return torrentRepository.findByInstallStatus("INSTALLING").stream()
                 .map(t -> new InstallJob(t.getId(), t.getTitle(), t.getSavePath(),
                         t.getInstallPath() != null ? t.getInstallPath() : defaultInstall,
                         isFitgirlRepack(t)))
