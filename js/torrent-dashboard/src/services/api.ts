@@ -1,6 +1,6 @@
 import type {
   ActivityDay, AppEvent, BrowseResult, CatalogGame, CatalogPage, CompletedTorrent, DiskInfo,
-  GameLibrary, Genre, HistoryEntry, MetricsSummary, NetRange, NetSeries, OwnedGame, PeerMap, Settings,
+  GameLibrary, Genre, HistoryEntry, MetricsSummary, NetRange, NetSeries, OwnedGame, PeerMap, PlayDay, Settings,
   SystemInfo, Torrent, TorrentDetails, Vitals,
 } from '../types'
 
@@ -160,6 +160,12 @@ export const systemApi = {
     }),
 }
 
+export const layoutApi = {
+  get: () => request<Record<string, unknown>>('/settings/layout'),
+  save: (layout: unknown) =>
+    request<void>('/settings/layout', { method: 'PUT', body: JSON.stringify(layout) }),
+}
+
 export const settingsApi = {
   get: () => request<Settings>('/settings'),
   update: (s: Settings) =>
@@ -180,6 +186,8 @@ export const insightApi = {
   games: () => request<GameLibrary>('/games'),
   genres: () => request<Genre[]>('/games/genres'),
   steamOwned: () => request<OwnedGame[]>('/games/steam/owned'),
+  playtime: (days = 364, key?: string) =>
+    request<PlayDay[]>(`/games/playtime?days=${days}${key ? `&key=${encodeURIComponent(key)}` : ''}`),
   launch: (key: string) =>
     request<{ status: string }>('/games/launch', { method: 'POST', body: JSON.stringify({ key }) }),
 }
