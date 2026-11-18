@@ -34,6 +34,7 @@ public class TorrentService {
     private final CatalogGameRepository catalogRepository;
     private final HistoryService history;
     private final EventService events;
+    private final RepackVerifier verifier;
 
     private static final java.util.regex.Pattern BTIH =
             java.util.regex.Pattern.compile("(?i)xt=urn:btih:([0-9a-f]{40})");
@@ -118,8 +119,18 @@ public class TorrentService {
     public List<TorrentResponse> getAllTorrents() {
         return torrentRepository.findAll().stream()
                 .peek(this::isFitgirlRepack)
-                .map(TorrentResponse::from)
+                .map(t -> TorrentResponse.from(t, coverFor(t),
+                        "VERIFYING".equals(t.getInstallStatus()) ? verifier.progressPercent() : null))
                 .toList();
+    }
+
+    /** The catalog's art for this exact torrent, so a card can show the game while it downloads. */
+    private String coverFor(Torrent t) {
+        String hash = infoHash(t.getMagnet());
+        if (hash == null) return null;
+        return catalogRepository.findByInfoHash(hash).stream()
+                .map(com.sixeyes.model.CatalogGame::getImageUrl)
+                .filter(u -> u != null && !u.isBlank()).findFirst().orElse(null);
     }
 
     public List<CompletedTorrentResponse> getCompletedTorrents() {
