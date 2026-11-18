@@ -45,12 +45,12 @@ export function TorrentActions({ torrent: t, handlers, verbose }: {
   if (confirming) {
     return (
       <div className="flex flex-wrap items-center gap-1.5 text-xs" onClick={e => e.stopPropagation()}>
-        <span className="text-muted-foreground">Remover?</span>
-        <Btn verbose label="Só o torrent" icon={<Trash2 className="size-3.5" />}
+        <span className="text-muted-foreground">Remove?</span>
+        <Btn verbose label="Torrent only" icon={<Trash2 className="size-3.5" />}
           onClick={() => { handlers.remove(t.id, false); setConfirming(false) }} />
         <Btn verbose tone="bad" label="Apagar arquivos" icon={<Trash2 className="size-3.5" />}
           onClick={() => { handlers.remove(t.id, true); setConfirming(false) }} />
-        <Btn label="Cancelar" icon={<X className="size-3.5" />} onClick={() => setConfirming(false)} />
+        <Btn label="Cancel" icon={<X className="size-3.5" />} onClick={() => setConfirming(false)} />
       </div>
     )
   }
@@ -58,17 +58,17 @@ export function TorrentActions({ torrent: t, handlers, verbose }: {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {handlers.open && (
-        <Btn verbose tone="cyan" label="Detalhes" icon={<Search className="size-3.5" />} onClick={() => handlers.open!(t.id)} />
+        <Btn verbose tone="cyan" label="Details" icon={<Search className="size-3.5" />} onClick={() => handlers.open!(t.id)} />
       )}
-      {canInstall && <Btn verbose={verbose} tone="ok" label="Instalar" icon={<Download className="size-3.5" />} onClick={() => handlers.install(t.id)} />}
+      {canInstall && <Btn verbose={verbose} tone="ok" label="Install" icon={<Download className="size-3.5" />} onClick={() => handlers.install(t.id)} />}
       {t.installStatus === 'REQUESTED' && (
-        <Btn verbose={verbose} label="Cancelar instalação" icon={<X className="size-3.5" />} onClick={() => handlers.cancelInstall(t.id)} />
+        <Btn verbose={verbose} label="Cancel install" icon={<X className="size-3.5" />} onClick={() => handlers.cancelInstall(t.id)} />
       )}
       {running
-        ? <Btn verbose={verbose} label="Pausar" icon={<Pause className="size-3.5" />} onClick={() => handlers.pause(t.id)} />
+        ? <Btn verbose={verbose} label="Pause" icon={<Pause className="size-3.5" />} onClick={() => handlers.pause(t.id)} />
         : <Btn verbose={verbose} label="Retomar" icon={<Play className="size-3.5" />} onClick={() => handlers.resume(t.id)} />}
-      {running && <Btn verbose={verbose} label="Parar" icon={<Square className="size-3.5" />} onClick={() => handlers.stop(t.id)} />}
-      <Btn verbose={verbose} tone="bad" label="Remover" icon={<Trash2 className="size-3.5" />} onClick={() => setConfirming(true)} />
+      {running && <Btn verbose={verbose} label="Stop" icon={<Square className="size-3.5" />} onClick={() => handlers.stop(t.id)} />}
+      <Btn verbose={verbose} tone="bad" label="Remove" icon={<Trash2 className="size-3.5" />} onClick={() => setConfirming(true)} />
     </div>
   )
 }
