@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Play } from 'lucide-react'
 import { insightApi } from '@/services/api'
+import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { bytes, minutes, when } from '@/lib/format'
-import type { Game, PlayDay } from '@/types'
+import type { Achievements, Game, PlayDay } from '@/types'
 import { Bar, Cover, Fact, Panel, SourceBadge, steamArt } from './primitives'
 
 const DAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
@@ -23,6 +24,15 @@ export function GameDetailDialog({ game, onClose, onLaunch, launching }: {
     insightApi.playtime(30, key).then(d => { if (!stale) setDays(d) }).catch(() => undefined)
     return () => { stale = true }
   }, [key])
+  const [ach, setAch] = useState<Achievements | null>(null)
+  const appId = game?.source === 'STEAM' ? game.key.slice(6) : null
+  useEffect(() => {
+    if (!appId) return
+    let stale = false
+    setAch(null)
+    insightApi.achievements(appId).then(a => { if (!stale) setAch(a) }).catch(() => undefined)
+    return () => { stale = true }
+  }, [appId])
   if (!game) return null
   const hours = game.playtimeMinutes / 60
   const beat = game.hltbMain ? Math.min(100, (hours / game.hltbMain) * 100) : null
@@ -104,9 +114,28 @@ export function GameDetailDialog({ game, onClose, onLaunch, launching }: {
             ) : <p className="text-xs text-faint">No sessions seen yet. Play with SixEyes running and days fill in here.</p>}
           </Panel>
 
-          <Panel title="Achievements">
-            <p className="text-xs text-faint">Not available yet: Steam only shares achievements through its Web API with a key, or from a public profile.</p>
-          </Panel>
+          {appId && (
+            <Panel title="Achievements" note={ach?.total ? `${ach.unlocked}/${ach.total} unlocked` : 'from your public Steam profile'}>
+              {!ach && <p className="text-xs text-faint">Loading…</p>}
+              {ach && !ach.total && <p className="text-xs text-faint">{ach.note ?? 'No achievements.'}</p>}
+              {ach && ach.total > 0 && (
+                <>
+                  <Bar value={(ach.unlocked / ach.total) * 100} tone={ach.unlocked === ach.total ? 'ok' : 'flow'} />
+                  <div className="mt-3 grid max-h-72 grid-cols-1 gap-1.5 overflow-y-auto sm:grid-cols-2">
+                    {[...ach.list].sort((a, b) => Number(b.unlocked) - Number(a.unlocked)).map(a => (
+                      <div key={a.name} className={cn('flex items-center gap-2.5 rounded-lg border px-2 py-1.5', !a.unlocked && 'opacity-55')}>
+                        <img src={a.icon} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-9 shrink-0 rounded" />
+                        <div className="min-w-0">
+                          <div className="truncate text-[0.78rem] font-semibold">{a.name}</div>
+                          <div className="truncate text-[0.68rem] text-faint">{a.unlocked && a.unlockedAt ? when(a.unlockedAt) : a.description || 'Locked'}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </Panel>
+          )}
         </div>
       </DialogContent>
     </Dialog>
