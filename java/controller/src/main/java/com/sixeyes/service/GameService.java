@@ -13,7 +13,15 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -37,6 +45,44 @@ public class GameService {
     private final SettingsService settings;
     private final PythonClientService python;
     private final EventService events;
+
+    /** What the Steam store says about an app; empty fields when it has no page (tools, removed apps). */
+    record SteamInfo(String genres, String summary, String developers) {}
+
+    // ponytail: in-memory cache filled in the background; lost on restart, refilled in seconds.
+    // Add a table if the store API ever rate-limits us.
+    private static final Map<String, SteamInfo> STEAM_INFO = new ConcurrentHashMap<>();
+    private static final ExecutorService STEAM_POOL = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "steam-details");
+        t.setDaemon(true);
+        return t;
+    });
+    private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+
+    /** Cached details, or null while the first lookup is still running (the next poll gets it). */
+    private static SteamInfo steamInfo(String appId) {
+        SteamInfo hit = STEAM_INFO.get(appId);
+        if (hit != null) return hit;
+        if (STEAM_INFO.putIfAbsent(appId, new SteamInfo(null, null, null)) != null) return null;
+        STEAM_POOL.submit(() -> {
+            try {
+                HttpResponse<String> r = HTTP.send(HttpRequest.newBuilder(URI.create(
+                                "https://store.steampowered.com/api/appdetails?filters=basic,genres,developers&l=english&appids=" + appId))
+                        .timeout(Duration.ofSeconds(10)).build(), HttpResponse.BodyHandlers.ofString());
+                var data = new com.fasterxml.jackson.databind.ObjectMapper().readTree(r.body()).path(appId).path("data");
+                List<String> genres = new ArrayList<>(), devs = new ArrayList<>();
+                data.path("genres").forEach(g -> genres.add(g.path("description").asText()));
+                data.path("developers").forEach(d -> devs.add(d.asText()));
+                String summary = data.path("short_description").asText("");
+                STEAM_INFO.put(appId, new SteamInfo(String.join(", ", genres),
+                        summary.isEmpty() ? null : summary, String.join(", ", devs)));
+            } catch (Exception e) {
+                if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+                STEAM_INFO.remove(appId); // network hiccup: try again on a later poll
+            }
+        });
+        return null;
+    }
 
     public record Game(String key, String name, String source, String installDir, Long sizeBytes,
                        String coverUrl, String headerUrl, String genres, Double hltbMain,
@@ -168,10 +214,16 @@ public class GameService {
                 String last = s.get("lastPlayed") instanceof Number n && n.longValue() > 0
                         ? LocalDateTime.ofInstant(Instant.ofEpochSecond(n.longValue()), ZoneId.systemDefault()).toString()
                         : null;
-                games.add(build(key, String.valueOf(s.get("name")), "STEAM", String.valueOf(s.get("installDir")),
+                Game base = build(key, String.valueOf(s.get("name")), "STEAM", String.valueOf(s.get("installDir")),
                         s.get("sizeBytes") instanceof Number n ? n.longValue() : null, null,
                         String.valueOf(s.get("coverUrl")), String.valueOf(s.get("headerUrl")), null,
-                        byKey.get(key), minutes, last, null));
+                        byKey.get(key), minutes, last, null);
+                SteamInfo info = steamInfo(String.valueOf(s.get("appId")));
+                games.add(info == null ? base : new Game(base.key(), base.name(), base.source(), base.installDir(),
+                        base.sizeBytes(), base.coverUrl(), base.headerUrl(), info.genres(), base.hltbMain(),
+                        info.summary(), info.developers(), base.torrentId(), base.playtimeMinutes(),
+                        base.lastPlayed(), base.sessions(), base.avgSessionMinutes(), base.last7DaysHours(),
+                        base.installedAt()));
             }
         }
 
