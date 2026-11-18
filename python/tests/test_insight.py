@@ -84,3 +84,19 @@ def test_geo_resolves_a_public_address_when_the_database_exists(monkeypatch):
         pytest.skip("no GeoIP database on this machine")
     monkeypatch.setattr(geo, "GEOIP_DB", db)
     assert geo.country("8.8.8.8") == "US"
+
+
+def test_playtime_counts_only_the_signed_in_account(tmp_path, monkeypatch):
+    def write(acct, appid, minutes):
+        cfg = tmp_path / "userdata" / acct / "config"
+        cfg.mkdir(parents=True)
+        (cfg / "localconfig.vdf").write_text(
+            '"UserLocalConfigStore" { "Software" { "Valve" { "Steam" { "apps" { '
+            f'"{appid}" {{ "Playtime" "{minutes}" }} }} }} }} }} }}')
+    write("491415489", "730", "600")
+    write("1204512492", "730", "6000")  # another account on the same PC
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "loginusers.vdf").write_text(
+        '"users" { "76561198451681217" { "MostRecent" "1" } }')
+    monkeypatch.setattr(steam, "steam_root", lambda: str(tmp_path))
+    assert steam._playtime(str(tmp_path))["730"]["minutes"] == 600
