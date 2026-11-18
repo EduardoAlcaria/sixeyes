@@ -60,10 +60,11 @@ try {
 
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = $setup
-  # /COMPONENTS="text" = main game files only; leaves out the DirectX / VC++ redists, which
-  # download and open windows. /VERYSILENT does NOT skip [Run] postinstall entries (only
-  # skipifsilent ones), so the watcher below handles the rest.
-  $psi.Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCANCEL /SP- /COMPONENTS=`"text`" `"/DIR=$dir`""
+  # No /COMPONENTS: forcing "text" also dropped the voice packs the user chose to download
+  # (TLOU ships Portuguese-Brazil as component locra). The installer's own default selection
+  # skips selective files that are absent. The redists it starts are killed by the watcher.
+  # /VERYSILENT does NOT skip [Run] postinstall entries (only skipifsilent ones).
+  $psi.Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCANCEL /SP- `"/DIR=$dir`""
   $psi.WorkingDirectory = [IO.Path]::GetDirectoryName($setup)
   $psi.UseShellExecute = $false
 
