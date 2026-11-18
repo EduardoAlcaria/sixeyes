@@ -59,6 +59,74 @@ public class GameService {
     });
     private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
+    /** A game in the Steam library that is not installed on this PC. */
+    public record OwnedGame(String appId, String name, long playtimeMinutes, String lastPlayed) {}
+
+    // appId -> game name; apps the store says are not games (DLC, tools, soundtracks) map to "".
+    private static final Map<String, String> STORE_NAMES = new ConcurrentHashMap<>();
+    private static final java.util.concurrent.atomic.AtomicBoolean RESOLVING = new java.util.concurrent.atomic.AtomicBoolean();
+
+    /** Library entries not installed here. Names fill in over the first seconds after startup. */
+    public List<OwnedGame> ownedSteam() {
+        Object raw = steam().get("owned");
+        if (!(raw instanceof List<?> list)) return List.of();
+        List<String> unknown = list.stream().filter(o -> o instanceof Map<?, ?>)
+                .map(o -> String.valueOf(((Map<?, ?>) o).get("appId")))
+                .filter(id -> !STORE_NAMES.containsKey(id)).toList();
+        if (!unknown.isEmpty() && RESOLVING.compareAndSet(false, true)) {
+            STEAM_POOL.submit(() -> {
+                try {
+                    resolveStoreNames(unknown);
+                } finally {
+                    RESOLVING.set(false);
+                }
+            });
+        }
+        List<OwnedGame> out = new ArrayList<>();
+        for (Object o : list) {
+            if (!(o instanceof Map<?, ?> m)) continue;
+            String id = String.valueOf(m.get("appId"));
+            String name = STORE_NAMES.get(id);
+            if (name == null || name.isEmpty()) continue;
+            long minutes = m.get("playtimeMinutes") instanceof Number n ? n.longValue() : 0;
+            String last = m.get("lastPlayed") instanceof Number n && n.longValue() > 0
+                    ? LocalDateTime.ofInstant(Instant.ofEpochSecond(n.longValue()), ZoneId.systemDefault()).toString() : null;
+            out.add(new OwnedGame(id, name, minutes, last));
+        }
+        out.sort(Comparator.comparing((OwnedGame g) -> g.playtimeMinutes()).reversed()
+                .thenComparing(g -> g.name().toLowerCase(Locale.ROOT)));
+        return out;
+    }
+
+    /** One store call per 100 ids: type 0 is a real game, anything else is stored as "". */
+    private static void resolveStoreNames(List<String> ids) {
+        for (int i = 0; i < ids.size(); i += 100) {
+            List<String> chunk = ids.subList(i, Math.min(ids.size(), i + 100));
+            try {
+                String input = "{\"ids\":[" + chunk.stream().map(id -> "{\"appid\":" + id + "}")
+                        .collect(Collectors.joining(",")) + "],\"context\":{\"language\":\"english\",\"country_code\":\"US\"},"
+                        + "\"data_request\":{\"include_basic_info\":true}}";
+                HttpResponse<String> r = HTTP.send(HttpRequest.newBuilder(URI.create(
+                                "https://api.steampowered.com/IStoreBrowseService/GetItems/v1?input_json="
+                                        + java.net.URLEncoder.encode(input, java.nio.charset.StandardCharsets.UTF_8)))
+                        .timeout(Duration.ofSeconds(20)).build(), HttpResponse.BodyHandlers.ofString());
+                var items = new com.fasterxml.jackson.databind.ObjectMapper().readTree(r.body())
+                        .path("response").path("store_items");
+                java.util.Set<String> seen = new java.util.HashSet<>();
+                for (var item : items) {
+                    String id = item.path("appid").asText();
+                    seen.add(id);
+                    boolean game = item.path("success").asInt() == 1 && item.path("type").asInt(-1) == 0;
+                    STORE_NAMES.put(id, game ? item.path("name").asText("") : "");
+                }
+                chunk.stream().filter(id -> !seen.contains(id)).forEach(id -> STORE_NAMES.put(id, "")); // delisted
+            } catch (Exception e) {
+                if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+                log.debug("Steam store names unavailable: {}", e.getMessage()); // retried on the next poll
+            }
+        }
+    }
+
     /** Cached details, or null while the first lookup is still running (the next poll gets it). */
     private static SteamInfo steamInfo(String appId) {
         SteamInfo hit = STEAM_INFO.get(appId);
@@ -287,7 +355,7 @@ public class GameService {
 
     @Transactional
     public void launch(String key) {
-        Game game = find(key).orElseThrow(() -> new IllegalArgumentException("Jogo não encontrado: " + key));
+        Game game = find(key).orElseThrow(() -> new IllegalArgumentException("Game not found: " + key));
         if ("STEAM".equals(game.source())) {
             python.postJson("/python/steam/launch", Map.of("appId", key.substring("steam:".length())));
         } else {
@@ -295,11 +363,11 @@ public class GameService {
             Object found = python.postJson("/python/games/exe", Map.of("dir", game.installDir(), "roots", roots));
             Object exe = found instanceof Map<?, ?> m ? m.get("exe") : null;
             if (exe == null) {
-                throw new IllegalArgumentException("Nenhum executável encontrado em " + game.installDir());
+                throw new IllegalArgumentException("No executable found in " + game.installDir());
             }
             python.postJson("/python/games/launch", Map.of("exe", exe.toString(), "roots", roots));
         }
-        events.record("GAME_LAUNCHED", AppEvent.Level.INFO, "Abrindo " + game.name(), game.torrentId());
+        events.record("GAME_LAUNCHED", AppEvent.Level.INFO, "Opening " + game.name(), game.torrentId());
     }
 
     public record Genre(String name, int games) {}
