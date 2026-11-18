@@ -175,11 +175,11 @@ export function LibraryPage() {
                   <div className="truncate text-[0.92rem] font-bold"><SourceBadge source="TORRENT" />{cleanTitle(t.title)}</div>
                   <div className="truncate font-mono text-[0.74rem] text-muted-foreground">
                     {busy
-                      ? `${verifying ? 'Verifying files' : 'Installing'}${verifying && t.installProgress != null ? ` · ${t.installProgress}%` : ''}`
+                      ? `${verifying ? 'Verifying files' : 'Installing'}${t.installProgress != null ? ` · ${t.installProgress}%` : ''}${installing && t.installEta ? ` · ${t.installEta} left` : ''}`
                       : `${t.size} · ${t.progress.toFixed(1)}%${t.eta ? ` · ETA ${t.eta}` : ''}${t.errorMessage ? ` · ${t.errorMessage}` : ''}`}
                   </div>
                 </div>
-                {busy ? <Ring value={verifying ? t.installProgress ?? 0 : null}>{verifying ? `${t.installProgress ?? 0}%` : ''}</Ring>
+                {busy ? <Ring value={verifying ? t.installProgress ?? 0 : t.installProgress}>{t.installProgress != null ? `${t.installProgress}%` : ''}</Ring>
                   : t.status === 'Error' ? <Pill tone="bad">Error</Pill>
                   : t.installStatus === 'INSTALLED' ? <Pill tone="ok">Installed</Pill>
                   : t.installStatus === 'FAILED' ? <Pill tone="bad">Install failed</Pill>
@@ -188,7 +188,7 @@ export function LibraryPage() {
                   : <Pill>{t.status === 'Paused' ? 'Paused' : 'Stopped'}</Pill>}
               </div>
               {busy
-                ? <Bar value={t.installProgress ?? 0} indeterminate={installing} tone="flow" />
+                ? <Bar value={t.installProgress ?? 0} indeterminate={installing && t.installProgress == null} tone="flow" />
                 : <Bar value={t.progress} tone={t.status === 'Error' ? 'bad' : done(t) ? 'ok' : t.status === 'Downloading' ? 'flow' : 'faint'} />}
               <StageTrace value={stages(t)} />
               {t.installStatus === 'FAILED' && t.installMessage && (
