@@ -37,7 +37,7 @@ export function GameDetailDialog({ game, onClose, onLaunch, launching }: {
               <div>
                 <button type="button" disabled={launching} onClick={() => onLaunch(game)}
                   className="inline-flex items-center gap-2 rounded-xl bg-ok px-5 py-2.5 text-sm font-extrabold text-[#06231a] disabled:opacity-60">
-                  <Play className="size-4" /> {launching ? 'Abrindo…' : 'Jogar'}
+                  <Play className="size-4" /> {launching ? 'Opening…' : 'Play'}
                 </button>
               </div>
             </div>
@@ -45,14 +45,14 @@ export function GameDetailDialog({ game, onClose, onLaunch, launching }: {
 
           <Panel title="Jogo">
             <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-              <Fact label="Tempo jogado" value={minutes(game.playtimeMinutes)} />
+              <Fact label="Time played" value={minutes(game.playtimeMinutes)} />
               <Fact label="Pra zerar (HLTB)" value={game.hltbMain ? `${Math.round(game.hltbMain)}h` : '—'} />
-              <Fact label="Sessões" value={game.sessions || '—'} />
-              <Fact label="Sessão média" value={game.avgSessionMinutes ? minutes(game.avgSessionMinutes) : '—'} />
-              <Fact label="Última vez" value={when(game.lastPlayed)} />
-              <Fact label="Espaço" value={bytes(game.sizeBytes)} />
-              <Fact label="Fonte" value={game.source === 'TORRENT' ? 'FitGirl' : game.source === 'STEAM' ? 'Steam' : 'Pasta local'} />
-              <Fact label="Pasta" value={<span className="text-xs">{game.installDir ?? '—'}</span>} />
+              <Fact label="Sessions" value={game.sessions || '—'} />
+              <Fact label="Avg session" value={game.avgSessionMinutes ? minutes(game.avgSessionMinutes) : '—'} />
+              <Fact label="Last played" value={when(game.lastPlayed)} />
+              <Fact label="Size" value={bytes(game.sizeBytes)} />
+              <Fact label="Source" value={game.source === 'TORRENT' ? 'FitGirl' : game.source === 'STEAM' ? 'Steam' : 'Local folder'} />
+              <Fact label="Folder" value={<span className="text-xs">{game.installDir ?? '—'}</span>} />
             </div>
             {beat != null && (
               <div className="mt-3">
@@ -64,7 +64,7 @@ export function GameDetailDialog({ game, onClose, onLaunch, launching }: {
             )}
           </Panel>
 
-          <Panel title="Horas jogadas · 7 dias" note="sessões que o SixEyes viu">
+          <Panel title="Hours played · 7 days" note="sessions SixEyes saw">
             <div className="flex h-32 items-end gap-2">
               {game.last7DaysHours.map((h, i) => (
                 <div key={i} className="flex flex-1 flex-col items-center gap-1">
