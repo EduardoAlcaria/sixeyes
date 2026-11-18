@@ -90,7 +90,7 @@ export function ShelfPage() {
         {shown.map(g => (
           <div key={g.key} className="overflow-hidden rounded-[calc(var(--radius)*0.6)] border bg-card">
             <button type="button" onClick={() => setOpen(g)} className="block w-full text-left" aria-label={`Detalhes de ${g.name}`}>
-              <Cover className="aspect-[3/4] w-full" seed={g.name}
+              <Cover className="aspect-[2/3] w-full" seed={g.name}
                 sources={g.source === 'STEAM' ? steamArt(g.key.slice(6)) : [g.coverUrl]}>
                 <span className="absolute left-2 top-2"><SourceBadge source={g.source} /></span>
                 <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-2.5 pb-2 pt-6 text-[0.8rem] font-bold text-white">
