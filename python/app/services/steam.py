@@ -173,6 +173,21 @@ def library(force: bool = False) -> list[dict]:
     return games
 
 
+def owned_not_installed() -> list[dict]:
+    """Apps this machine's Steam accounts have in their library but that are not installed.
+
+    localconfig.vdf lists every app the account has touched, owned DLC and tools included;
+    the controller filters those out by asking the Steam store which ids are real games.
+    """
+    root = steam_root()
+    if not root:
+        return []
+    installed = {g["appId"] for g in library()}
+    return [{"appId": a, "playtimeMinutes": p["minutes"], "lastPlayed": p["lastPlayed"] or None}
+            for a, p in _playtime(root).items()
+            if a.isdigit() and a not in installed and a not in _NOT_GAMES]
+
+
 def launch(app_id: str) -> None:
     if not str(app_id).isdigit():
         raise ValueError("invalid app id")
