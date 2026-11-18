@@ -148,6 +148,8 @@ public class InstallService {
             log.info("Installed [{}] -> {}", job.id(), target);
         } else if (exit == ELEVATION_REFUSED) {
             fail(job, "The elevated installer task refused the job (setup outside the download folders)");
+        } else if (exit == STALLED) {
+            fail(job, "Installer stalled (no progress for 20 min) and was stopped - close heavy apps to free RAM and install again");
         } else if (exit == ELEVATION_NEEDED) {
             fail(job, "setup.exe needs administrator rights - run scripts/register-installer.ps1 once as admin");
         } else {
@@ -220,6 +222,8 @@ public class InstallService {
     private static final int TIMED_OUT = -1;
     /** install-runner.ps1 exit codes. */
     private static final int ELEVATION_REFUSED = 98;
+    /** install-runner.ps1 watchdog: no progress and no CPU for 20 minutes. */
+    private static final int STALLED = 96;
     /** Inno Setup quits with 2 when it needs admin and cannot ask (SUPPRESSMSGBOXES). */
     private static final int ELEVATION_NEEDED = 2;
 
