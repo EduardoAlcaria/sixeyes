@@ -195,12 +195,13 @@ export function Cover({ sources, seed, className, children }: {
   )
 }
 
-/** Every place Steam may hold a game's art, best first. */
+/** Every place Steam may hold a game's art, best first. Our own relay leads: it works where the CDN is blocked. */
 export function steamArt(appId: string | null | undefined, portrait = true): string[] {
   if (!appId) return []
   const cf = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}`
   const ak = `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}`
+  const own = `/api/v1/games/art/steam/${appId}?portrait=${portrait}`
   return portrait
-    ? [`${cf}/library_600x900.jpg`, `${ak}/library_600x900.jpg`, `${ak}/library_600x900_2x.jpg`, `${cf}/header.jpg`, `${ak}/header.jpg`]
-    : [`${cf}/header.jpg`, `${ak}/header.jpg`, `${cf}/capsule_231x87.jpg`]
+    ? [own, `${cf}/library_600x900.jpg`, `${ak}/library_600x900.jpg`, `${ak}/library_600x900_2x.jpg`, `${cf}/header.jpg`, `${ak}/header.jpg`]
+    : [own, `${cf}/header.jpg`, `${ak}/header.jpg`, `${cf}/capsule_231x87.jpg`]
 }
