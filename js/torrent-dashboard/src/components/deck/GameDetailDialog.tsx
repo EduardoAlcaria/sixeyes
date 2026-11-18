@@ -23,7 +23,7 @@ export function GameDetailDialog({ game, onClose, onLaunch, launching }: {
       <DialogContent className="max-h-[90vh] overflow-y-auto p-5 sm:max-w-3xl">
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap gap-4">
-            <Cover className="aspect-[3/4] w-28 shrink-0 rounded-[calc(var(--radius)*0.6)]" seed={game.name}
+            <Cover className="aspect-[2/3] w-28 shrink-0 rounded-[calc(var(--radius)*0.6)]" seed={game.name}
               sources={game.source === 'STEAM' ? steamArt(game.key.slice(6)) : [game.coverUrl]} />
             <div className="flex min-w-[220px] flex-1 flex-col gap-2.5">
               <DialogTitle className="text-xl font-extrabold"><SourceBadge source={game.source} />{game.name}</DialogTitle>
