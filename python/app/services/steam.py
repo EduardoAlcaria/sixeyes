@@ -122,10 +122,23 @@ def library_paths(root: str | None = None) -> list[str]:
     return out
 
 
+_STEAMID64_BASE = 76561197960265728  # SteamID64 = base + userdata account id
+
+
 def _playtime(root: str) -> dict[str, dict]:
-    """appid -> {minutes, lastPlayed}, summed across every account that logged in here."""
+    """appid -> {minutes, lastPlayed} for the signed-in account.
+
+    userdata/ holds every account that ever logged in on this PC (family, friends);
+    summing them mixed someone else's hours in. Falls back to all when unknown.
+    """
     result: dict[str, dict] = {}
-    for cfg in glob.glob(os.path.join(root, "userdata", "*", "config", "localconfig.vdf")):
+    configs = glob.glob(os.path.join(root, "userdata", "*", "config", "localconfig.vdf"))
+    sid = account_id()
+    if sid:
+        mine = os.path.join(root, "userdata", str(int(sid) - _STEAMID64_BASE), "config", "localconfig.vdf")
+        if os.path.isfile(mine):
+            configs = [mine]
+    for cfg in configs:
         store = _get(_read(cfg), "UserLocalConfigStore")
         apps = _get(_get(_get(_get(store, "Software"), "Valve"), "Steam"), "apps") or {}
         for appid, info in apps.items():
