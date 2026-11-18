@@ -28,14 +28,14 @@ export function KpiWidget({ torrents, summary, vitals, library }: {
     ?? vitals?.drives[0]
   const ram = vitals?.ramTotal ? Math.round((vitals.ramUsed! / vitals.ramTotal) * 100) : null
   return (
-    <Panel title="Resumo">
+    <Panel title="Summary">
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
-        <Metric label="Download" value={down.toFixed(1)} unit="MB/s" tone="cyan" hint={summary ? `pico hoje ${summary.peakToday}` : undefined} />
-        <Metric label="Baixando" value={downloading} hint={`${torrents.length} na fila`} tone="muted" />
-        <Metric label="Semeando" value={seeding} hint={summary?.globalRatio != null ? `ratio ${summary.globalRatio}` : undefined} tone="muted" />
+        <Metric label="Download" value={down.toFixed(1)} unit="MB/s" tone="cyan" hint={summary ? `peak today ${summary.peakToday}` : undefined} />
+        <Metric label="Downloading" value={downloading} hint={`${torrents.length} queued`} tone="muted" />
+        <Metric label="Seeding" value={seeding} hint={summary?.globalRatio != null ? `ratio ${summary.globalRatio}` : undefined} tone="muted" />
         <Metric label="Na estante" value={library?.games.length ?? '—'} hint={library ? `${library.games.filter(g => g.source === 'STEAM').length} Steam` : undefined} tone="muted" />
-        <Metric label={`Livre ${downloadDrive?.drive ?? ''}`} value={downloadDrive ? Math.round(downloadDrive.free / 2 ** 30) : '—'} unit="GB"
-          hint={summary?.diskFullDays != null ? `cheio em ~${summary.diskFullDays}d` : 'sem previsão'} tone={summary?.diskFullDays != null && summary.diskFullDays < 7 ? 'down' : 'muted'} />
+        <Metric label={`Free ${downloadDrive?.drive ?? ''}`} value={downloadDrive ? Math.round(downloadDrive.free / 2 ** 30) : '—'} unit="GB"
+          hint={summary?.diskFullDays != null ? `full in ~${summary.diskFullDays}d` : 'no forecast'} tone={summary?.diskFullDays != null && summary.diskFullDays < 7 ? 'down' : 'muted'} />
         <Metric label="CPU / RAM" value={`${Math.round(vitals?.cpu ?? 0)}%`} unit={ram != null ? `/ ${ram}%` : undefined}
           hint={vitals ? `uptime ${duration(vitals.systemUptime)}` : undefined} tone="muted" />
       </div>
@@ -45,13 +45,13 @@ export function KpiWidget({ torrents, summary, vitals, library }: {
 
 export function NetMetricsWidget({ summary, peers, vitals }: { summary: MetricsSummary | null; peers: PeerMap | null; vitals: Vitals | null }) {
   return (
-    <Panel title="Métricas de rede">
+    <Panel title="Network metrics">
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
-        <Metric label="Baixado hoje" value={bytes(summary?.downloadedToday)} tone="muted"
-          hint={summary ? `média ${bytes(summary.avgDailyDown, 0)}/dia` : undefined} />
-        <Metric label="Enviado hoje" value={bytes(summary?.uploadedToday)} tone="muted" />
-        <Metric label="Peers" value={peers?.total ?? '—'} hint={peers ? `${Object.keys(peers.countries).length} países` : undefined} tone="muted" />
-        <Metric label="Nós DHT" value={vitals?.dhtNodes ?? '—'} tone="muted" />
+        <Metric label="Downloaded today" value={bytes(summary?.downloadedToday)} tone="muted"
+          hint={summary ? `avg ${bytes(summary.avgDailyDown, 0)}/day` : undefined} />
+        <Metric label="Uploaded today" value={bytes(summary?.uploadedToday)} tone="muted" />
+        <Metric label="Peers" value={peers?.total ?? '—'} hint={peers ? `${Object.keys(peers.countries).length} countries` : undefined} tone="muted" />
+        <Metric label="DHT nodes" value={vitals?.dhtNodes ?? '—'} tone="muted" />
         <Metric label="Ratio global" value={summary?.globalRatio ?? '—'} tone="muted" />
         <Metric label="Total enviado" value={bytes(summary?.allTimeUploaded)} hint={`baixado ${bytes(summary?.allTimeDownloaded)}`} tone="muted" />
       </div>
@@ -67,12 +67,12 @@ export function ThroughputWidget() {
   const points = useMemo(() => (data?.points ?? []).map(p => ({
     ...p,
     label: range === '24h'
-      ? new Date(p.t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-      : new Date(p.t).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      ? new Date(p.t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+      : new Date(p.t).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }),
   })), [data, range])
   return (
     <Panel title="Throughput"
-      note={data?.peakDown ? `pico ${data.peakDown} MB/s · ${when(data.peakAt)}` : 'sem tráfego ainda'}
+      note={data?.peakDown ? `peak ${data.peakDown} MB/s · ${when(data.peakAt)}` : 'no traffic yet'}
       actions={(['24h', '7d', '30d'] as NetRange[]).map(r => (
         <button key={r} type="button" onClick={() => setRange(r)}
           className={cn('rounded-full border px-2 py-0.5 text-[0.66rem]', r === range ? 'border-primary bg-primary/20 text-foreground' : 'text-muted-foreground')}>
@@ -116,7 +116,7 @@ export function SwarmWidget({ torrents }: { torrents: Torrent[] }) {
   const avail = active.filter(t => t.availability != null)
   const worst = avail.length ? Math.min(...avail.map(t => t.availability!)) : null
   return (
-    <Panel title="Saúde do swarm" note={worst != null ? `pior availability ${worst.toFixed(2)}` : undefined}>
+    <Panel title="Swarm health" note={worst != null ? `worst availability ${worst.toFixed(2)}` : undefined}>
       <div className="flex items-center gap-4">
         <svg viewBox="0 0 120 120" className="aspect-square w-full max-w-[160px] shrink-0">
           {[54, 36, 18].map(r => <circle key={r} cx="60" cy="60" r={r} fill="none" stroke="var(--border)" />)}
@@ -137,14 +137,18 @@ export function SwarmWidget({ torrents }: { torrents: Torrent[] }) {
           })}
         </svg>
         <div className="min-w-0 flex-1 text-[0.82rem]">
-          {[['Seeds', seeds, 'text-cyan'], ['Peers', peers, 'text-violet'], ['Conexões', conns, ''],
-            ['Availability mín.', worst != null ? worst.toFixed(2) : '—', worst != null && worst < 1 ? 'text-bad' : 'text-ok']]
+          {[['Seeds', seeds, 'text-cyan'], ['Peers', peers, 'text-violet'], ['Connections', conns, ''],
+            ['Min availability', worst != null ? worst.toFixed(2) : '—', worst != null && worst < 1 ? 'text-bad' : 'text-ok']]
             .map(([k, v, c]) => (
               <div key={k as string} className="flex justify-between border-b border-dashed py-1.5 last:border-0">
                 <span className="text-muted-foreground">{k}</span><b className={cn('font-mono', c as string)}>{v}</b>
               </div>
             ))}
-          <p className="mt-2 text-[0.7rem] text-faint">Availability &lt; 1 = falta peça no swarm; o download pode travar.</p>
+          <p className="mt-2 text-[0.7rem] leading-snug text-faint">
+            Radar: one dot per torrent. The closer to the centre, the healthier its swarm; cyan = downloading,
+            violet = seeding, red = missing pieces. Availability is how many full copies of the file the peers
+            you can reach hold together; below 1 means some pieces exist nowhere, so the download can stall.
+          </p>
         </div>
       </div>
     </Panel>
@@ -156,7 +160,7 @@ export function SwarmWidget({ torrents }: { torrents: Torrent[] }) {
 export function MapWidget({ peers, compact }: { peers: PeerMap | null; compact?: boolean }) {
   const top = Object.entries(peers?.countries ?? {}).sort((a, b) => b[1].peers - a[1].peers).slice(0, compact ? 5 : 8)
   return (
-    <Panel title="Mapa de peers" note={peers ? `${peers.total} peers · ${Object.keys(peers.countries).length} países` : undefined}
+    <Panel title="Peers map" note={peers ? `${peers.total} peers · ${Object.keys(peers.countries).length} countries` : undefined}
       actions={compact && <Link to="/map" className="text-[0.7rem] text-cyan">abrir mapa →</Link>}>
       {peers && !peers.geoAvailable && (
         <p className="mb-2 rounded-md bg-warn/10 px-3 py-2 text-xs text-warn">Base GeoIP ausente — rode scripts/geoip-update.ps1.</p>
@@ -169,7 +173,7 @@ export function MapWidget({ peers, compact }: { peers: PeerMap | null; compact?:
               <span className="truncate">{flag(code)} {countryName(code)}</span><b className="font-mono">{s.peers}</b>
             </div>
           ))}
-          {!top.length && <p className="text-xs text-faint">Nenhum peer conectado agora.</p>}
+          {!top.length && <p className="text-xs text-faint">No peers connected right now.</p>}
         </div>
       </div>
       <p className="mt-2 text-right text-[0.62rem] text-faint">IP Geolocation by DB-IP</p>
@@ -180,22 +184,22 @@ export function MapWidget({ peers, compact }: { peers: PeerMap | null; compact?:
 // --- Recent history ---------------------------------------------------------
 
 export function installLabel(h: HistoryEntry) {
-  if (h.installStatus === 'INSTALLED') return <Pill tone="ok">Instalado</Pill>
-  if (h.installStatus === 'FAILED') return <Pill tone="bad">Falhou</Pill>
+  if (h.installStatus === 'INSTALLED') return <Pill tone="ok">Installed</Pill>
+  if (h.installStatus === 'FAILED') return <Pill tone="bad">Failed</Pill>
   if (h.installStatus === 'VERIFYING' || h.installStatus === 'INSTALLING') return <Pill tone="go">Instalando</Pill>
   if (h.status === 'REMOVED') return <Pill>Removido</Pill>
-  if (h.status === 'COMPLETED') return <Pill tone="ok">Baixado</Pill>
-  if (h.status === 'ERROR') return <Pill tone="bad">Erro</Pill>
-  return <Pill tone="go">Baixando</Pill>
+  if (h.status === 'COMPLETED') return <Pill tone="ok">Downloaded</Pill>
+  if (h.status === 'ERROR') return <Pill tone="bad">Error</Pill>
+  return <Pill tone="go">Downloading</Pill>
 }
 
 export function RecentWidget({ history, onOpen }: { history: HistoryEntry[] | null; onOpen: (torrentId: number) => void }) {
   return (
-    <Panel title="Downloads recentes" actions={<Link to="/history" className="text-[0.7rem] text-cyan">histórico completo →</Link>}>
+    <Panel title="Recent downloads" actions={<Link to="/history" className="text-[0.7rem] text-cyan">full history →</Link>}>
       <div className="overflow-x-auto">
         <table className="w-full text-[0.82rem] [&_td]:px-2 [&_th]:px-2">
           <thead className="text-left text-[0.64rem] uppercase tracking-[0.05em] text-faint">
-            <tr><th className="py-1.5">Jogo</th><th>Tam.</th><th>Verif.</th><th>Quando</th><th>Status</th></tr>
+            <tr><th className="py-1.5">Game</th><th>Tam.</th><th>Verif.</th><th>Quando</th><th>Status</th></tr>
           </thead>
           <tbody>
             {(history ?? []).slice(0, 6).map(h => (
@@ -210,7 +214,7 @@ export function RecentWidget({ history, onOpen }: { history: HistoryEntry[] | nu
             ))}
           </tbody>
         </table>
-        {!history?.length && <p className="py-4 text-center text-xs text-faint">Nada baixado ainda.</p>}
+        {!history?.length && <p className="py-4 text-center text-xs text-faint">Nothing downloaded yet.</p>}
       </div>
     </Panel>
   )
@@ -220,7 +224,7 @@ export function RecentWidget({ history, onOpen }: { history: HistoryEntry[] | nu
 
 export function DisksWidget({ vitals }: { vitals: Vitals | null }) {
   return (
-    <Panel title="Discos" note="espaço · leitura/escrita · saúde">
+    <Panel title="Disks" note="space · read/write · health">
       <div className="flex flex-col">
         {(vitals?.drives ?? []).map(d => {
           const pct = d.total ? (d.used / d.total) * 100 : 0
@@ -229,7 +233,7 @@ export function DisksWidget({ vitals }: { vitals: Vitals | null }) {
               <div className="flex items-center gap-2 text-[0.86rem]">
                 <b>{d.drive}\</b>
                 <span className="truncate text-muted-foreground">{d.model || d.fs}{d.mediaType && d.mediaType !== 'Unspecified' ? ` · ${d.mediaType}` : ''}</span>
-                <span className="ml-auto shrink-0 font-mono text-[0.76rem] text-muted-foreground">{bytes(d.free, 0)} livre / {bytes(d.total, 0)}</span>
+                <span className="ml-auto shrink-0 font-mono text-[0.76rem] text-muted-foreground">{bytes(d.free, 0)} free / {bytes(d.total, 0)}</span>
               </div>
               <Bar value={pct} tone={pct > 90 ? 'hot' : 'flow'} />
               <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[0.72rem] text-muted-foreground">
@@ -237,12 +241,12 @@ export function DisksWidget({ vitals }: { vitals: Vitals | null }) {
                 <span className="text-violet">W <b className="text-foreground">{rate(d.writeBps)}</b></span>
                 {d.temperature != null && <span>temp <b className="text-foreground">{d.temperature}°C</b></span>}
                 {d.wear != null && <span>desgaste <b className="text-foreground">{d.wear}%</b></span>}
-                {d.health && <span>saúde <b className={d.health === 'Healthy' ? 'text-ok' : 'text-warn'}>{d.health === 'Healthy' ? 'OK' : d.health}</b></span>}
+                {d.health && <span>health <b className={d.health === 'Healthy' ? 'text-ok' : 'text-warn'}>{d.health === 'Healthy' ? 'OK' : d.health}</b></span>}
               </div>
             </div>
           )
         })}
-        {!vitals && <p className="text-xs text-faint">Carregando…</p>}
+        {!vitals && <p className="text-xs text-faint">Loading…</p>}
       </div>
     </Panel>
   )
@@ -253,7 +257,7 @@ export function DisksWidget({ vitals }: { vitals: Vitals | null }) {
 export function PipelineWidget({ torrents, onOpen }: { torrents: Torrent[]; onOpen: (id: number) => void }) {
   const items = torrents.filter(t => !isDone(t) || ['REQUESTED', 'VERIFYING', 'INSTALLING', 'FAILED'].includes(t.installStatus))
   return (
-    <Panel title="Pipeline de instalação" note="baixar → verificar → instalar">
+    <Panel title="Install pipeline" note="download → verify → install">
       <div className="flex flex-col">
         {items.slice(0, 5).map(t => (
           <button type="button" key={t.id} onClick={() => onOpen(t.id)}
@@ -262,16 +266,16 @@ export function PipelineWidget({ torrents, onOpen }: { torrents: Torrent[]; onOp
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[0.9rem] font-bold">{cleanTitle(t.title)}</div>
                 <div className="font-mono text-[0.74rem] text-muted-foreground">
-                  {isDone(t) ? (t.installMessage ?? 'Na fila de instalação') : `${t.progress.toFixed(1)}% · ${t.downloadSpeed}${t.eta ? ` · ETA ${t.eta}` : ''}`}
+                  {isDone(t) ? (t.installMessage ?? 'Queued for install') : `${t.progress.toFixed(1)}% · ${t.downloadSpeed}${t.eta ? ` · ETA ${t.eta}` : ''}`}
                 </div>
               </div>
-              {t.installStatus === 'FAILED' ? <Pill tone="bad">Falhou</Pill> : <Pill tone="go">{isDone(t) ? 'Instalação' : `${Math.floor(t.progress)}%`}</Pill>}
+              {t.installStatus === 'FAILED' ? <Pill tone="bad">Failed</Pill> : <Pill tone="go">{isDone(t) ? 'Installing' : `${Math.floor(t.progress)}%`}</Pill>}
             </div>
             {!isDone(t) && <Bar value={t.progress} />}
             <StageTrace value={stages(t)} />
           </button>
         ))}
-        {!items.length && <p className="text-xs text-faint">Nada em andamento.</p>}
+        {!items.length && <p className="text-xs text-faint">Nothing in progress.</p>}
       </div>
     </Panel>
   )
@@ -283,7 +287,7 @@ const DOT: Record<AppEvent['level'], string> = { INFO: 'bg-cyan', OK: 'bg-ok', W
 
 export function EventsWidget({ events }: { events: AppEvent[] | null }) {
   return (
-    <Panel title="Eventos ao vivo">
+    <Panel title="Live events">
       <div className="flex max-h-72 flex-col overflow-y-auto">
         {(events ?? []).map(e => (
           <div key={e.id} className="flex items-start gap-2.5 border-b py-2 text-[0.82rem] last:border-0">
@@ -292,7 +296,7 @@ export function EventsWidget({ events }: { events: AppEvent[] | null }) {
             <span className="min-w-0">{e.message}</span>
           </div>
         ))}
-        {!events?.length && <p className="text-xs text-faint">Sem eventos ainda.</p>}
+        {!events?.length && <p className="text-xs text-faint">No events yet.</p>}
       </div>
     </Panel>
   )
@@ -308,7 +312,7 @@ export function VitalsWidget({ vitals }: { vitals: Vitals | null }) {
   ]
   if (vitals?.gpu) rows.push(['GPU', vitals.gpu.usage, `${vitals.gpu.usage}% · ${vitals.gpu.temperature}°C`])
   return (
-    <Panel title="Vitais do PC" note={vitals ? `ligado há ${duration(vitals.systemUptime)}` : undefined}>
+    <Panel title="PC vitals" note={vitals ? `up for ${duration(vitals.systemUptime)}` : undefined}>
       {rows.map(([k, v, label]) => (
         <div key={k} className="flex items-center gap-2.5 border-b border-dashed py-1.5 text-[0.8rem] last:border-0">
           <span className="w-12 text-muted-foreground">{k}</span>
@@ -338,9 +342,9 @@ export function GenresWidget({ genres }: { genres: Genre[] | null }) {
   const total = top.reduce((s, g) => s + g.games, 0)
   let offset = 25
   return (
-    <Panel title="Gêneros da estante" note={total ? `${total} marcações` : undefined}>
+    <Panel title="Shelf genres" note={total ? `${total} tags` : undefined}>
       {total === 0 ? (
-        <p className="text-xs text-faint">Sem gêneros conhecidos — aparecem para jogos do catálogo FitGirl/IGDB.</p>
+        <p className="text-xs text-faint">No known genres — they appear for FitGirl catalog / IGDB / Steam games.</p>
       ) : (
         <div className="flex items-center gap-4">
           <svg viewBox="0 0 42 42" className="aspect-square w-full max-w-[150px] shrink-0">
@@ -380,14 +384,14 @@ export function HeatmapWidget({ activity }: { activity: ActivityDay[] | null }) 
   const shade = ['var(--background)', 'color-mix(in oklch, var(--cyan) 25%, var(--card))',
     'color-mix(in oklch, var(--cyan) 50%, var(--card))', 'color-mix(in oklch, var(--cyan) 75%, var(--card))', 'var(--cyan)']
   return (
-    <Panel title="Atividade" note={`${bytes(total)} em ${days.length} dias`}>
+    <Panel title="Activity" note={`${bytes(total)} in ${days.length} days`}>
       <div className="overflow-x-auto pb-1">
         <div className="grid min-w-max grid-flow-col gap-[3px]" style={{ gridTemplateRows: 'repeat(7, 12px)', gridAutoColumns: 'minmax(12px, 1fr)' }}>
           {Array.from({ length: lead }).map((_, i) => <span key={`pad${i}`} />)}
           {days.map(d => (
             <span key={d.date} className="rounded-[2px]"
               style={{ background: level(d.downBytes) ? shade[level(d.downBytes)] : 'var(--muted)' }}
-              title={`${new Date(d.date + 'T00:00').toLocaleDateString('pt-BR')} · ${bytes(d.downBytes)}`} />
+              title={`${new Date(d.date + 'T00:00').toLocaleDateString('en-GB')} · ${bytes(d.downBytes)}`} />
           ))}
         </div>
       </div>
@@ -405,7 +409,7 @@ export function TreemapWidget({ library }: { library: GameLibrary | null }) {
     .sort((a, b) => b.sizeBytes! - a.sizeBytes!)
   const total = games.reduce((s, g) => s + g.sizeBytes!, 0) + (library?.installFree ?? 0)
   return (
-    <Panel title="Espaço por jogo" note={library ? `${bytes(games.reduce((s, g) => s + g.sizeBytes!, 0), 0)} em ${games.length} jogos` : undefined}>
+    <Panel title="Space per game" note={library ? `${bytes(games.reduce((s, g) => s + g.sizeBytes!, 0), 0)} in ${games.length} games` : undefined}>
       {library?.sizesComputing && <p className="mb-2 text-xs text-faint">Calculando tamanhos das pastas…</p>}
       <div className="flex flex-wrap gap-1">
         {games.map(g => {
