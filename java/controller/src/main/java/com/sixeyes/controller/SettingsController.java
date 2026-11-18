@@ -24,4 +24,15 @@ public class SettingsController {
     public ResponseEntity<SettingsResponse> update(@Valid @RequestBody UpdateSettingsRequest request) {
         return ResponseEntity.ok(settingsService.updateSettings(request));
     }
+
+    @GetMapping(value = "/layout", produces = "application/json")
+    public String layout() {
+        return settingsService.getLayout();
+    }
+
+    @PutMapping(value = "/layout", consumes = "application/json")
+    public ResponseEntity<Void> saveLayout(@RequestBody String json) {
+        settingsService.saveLayout(json);
+        return ResponseEntity.noContent().build();
+    }
 }
