@@ -52,6 +52,27 @@ class CatalogServiceTest {
     }
 
     @Test
+    void search_typoMatchesTitleWordByWordWithoutIgdb() {
+        CatalogGame game = makeGame("Mass Effect - v1.02 + 2 DLCs", "https://fitgirl-repacks.site/mass-effect/");
+        game.setId(7L);
+        when(repo.searchByTitle(eq("mass efect"), any())).thenReturn(new PageImpl<>(List.of()));
+        when(repo.findIdsAndTitles()).thenReturn(List.<Object[]>of(
+                new Object[]{7L, "Mass Effect - v1.02 + 2 DLCs"}, new Object[]{8L, "Massive Chalice"}));
+        when(repo.findAllById(any())).thenReturn(List.of(game));
+
+        Page<CatalogGameResponse> result = service.search("mass efect", 0, 24);
+
+        assertThat(result.getContent()).extracting(CatalogGameResponse::title).containsExactly("Mass Effect - v1.02 + 2 DLCs");
+    }
+
+    @Test
+    void similarity_toleratesOneTypoButNotUnrelatedWords() {
+        assertThat(CatalogService.similarity("efect", "effect")).isGreaterThanOrEqualTo(0.7);
+        assertThat(CatalogService.similarity("mass", "massive")).isEqualTo(1.0);
+        assertThat(CatalogService.similarity("zelda", "effect")).isLessThan(0.7);
+    }
+
+    @Test
     void getDetails_splitsOptionalPartsAndScreenshots() {
         CatalogGame game = makeGame("Elden Ring", "https://fitgirl-repacks.site/elden-ring/");
         game.setOptionalParts("fg-optional-bonus\nfg-optional-russian");
