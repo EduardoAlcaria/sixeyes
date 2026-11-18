@@ -76,7 +76,7 @@ public class PlayService {
                 sessions.save(s);
                 long min = s.seconds() / 60;
                 events.record("GAME_STOPPED", AppEvent.Level.INFO,
-                        "Fim de sessão: " + s.getGameName() + " (" + (min / 60) + "h" + String.format("%02d", min % 60) + ")");
+                        "Session ended: " + s.getGameName() + " (" + (min / 60) + "h" + String.format("%02d", min % 60) + ")");
                 if (stale) open.remove(s.getGameKey());
             }
         }
