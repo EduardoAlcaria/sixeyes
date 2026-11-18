@@ -49,6 +49,16 @@ public class RepackVerifier {
     private static final int MAX_SEARCH_DEPTH = 4;
     private static final int BUFFER_BYTES = 1 << 20;
 
+    // ponytail: one install runs at a time, so one pair of counters is enough.
+    private final java.util.concurrent.atomic.AtomicLong totalBytes = new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong doneBytes = new java.util.concurrent.atomic.AtomicLong();
+
+    /** 0-100 for the verification in flight (or the last one), for the progress ring. */
+    public int progressPercent() {
+        long total = totalBytes.get();
+        return total <= 0 ? 0 : (int) Math.min(100, doneBytes.get() * 100 / total);
+    }
+
     public record Result(int verified, int skippedOptional, List<String> failures) {
         public boolean passed() {
             return failures.isEmpty();
@@ -78,6 +88,18 @@ public class RepackVerifier {
         List<String> failures = new ArrayList<>();
         int verified = 0;
         int skippedOptional = 0;
+        doneBytes.set(0);
+        totalBytes.set(0);
+
+        // First pass sizes the work so progress is a real percentage, not a spinner.
+        long total = 0;
+        for (String rawLine : Files.readAllLines(checksumFile, StandardCharsets.UTF_8)) {
+            Matcher m = ENTRY.matcher(rawLine.trim());
+            if (!m.matches()) continue;
+            Path f = base.resolve(m.group(2).trim().replace('\\', '/')).normalize();
+            if (f.startsWith(root) && Files.isRegularFile(f)) total += Files.size(f);
+        }
+        totalBytes.set(total);
 
         for (String rawLine : Files.readAllLines(checksumFile, StandardCharsets.UTF_8)) {
             String line = rawLine.trim();
@@ -110,7 +132,7 @@ public class RepackVerifier {
                 continue;
             }
 
-            String actual = md5(file);
+            String actual = md5(file, doneBytes);
             if (actual.equals(expected)) {
                 verified++;
             } else {
@@ -130,6 +152,10 @@ public class RepackVerifier {
     }
 
     static String md5(Path file) throws IOException {
+        return md5(file, new java.util.concurrent.atomic.AtomicLong());
+    }
+
+    static String md5(Path file, java.util.concurrent.atomic.AtomicLong progress) throws IOException {
         MessageDigest digest;
         try {
             digest = MessageDigest.getInstance("MD5");
@@ -140,8 +166,9 @@ public class RepackVerifier {
         try (InputStream in = new DigestInputStream(
                 new BufferedInputStream(Files.newInputStream(file), BUFFER_BYTES), digest)) {
             byte[] buffer = new byte[BUFFER_BYTES];
-            while (in.read(buffer) != -1) {
-                // digest updated by the stream
+            int n;
+            while ((n = in.read(buffer)) != -1) {
+                progress.addAndGet(n); // digest itself is updated by the stream
             }
         }
         return HexFormat.of().formatHex(digest.digest());
