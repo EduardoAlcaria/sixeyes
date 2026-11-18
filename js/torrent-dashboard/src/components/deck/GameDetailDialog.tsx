@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import { Play } from 'lucide-react'
+import { insightApi } from '@/services/api'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { bytes, minutes, when } from '@/lib/format'
-import type { Game } from '@/types'
+import type { Game, PlayDay } from '@/types'
 import { Bar, Cover, Fact, Panel, SourceBadge, steamArt } from './primitives'
 
 const DAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
@@ -12,6 +14,15 @@ export function GameDetailDialog({ game, onClose, onLaunch, launching }: {
   onLaunch: (g: Game) => void
   launching: boolean
 }) {
+  const [days, setDays] = useState<PlayDay[] | null>(null)
+  const key = game?.key
+  useEffect(() => {
+    if (!key) return
+    let stale = false
+    setDays(null)
+    insightApi.playtime(30, key).then(d => { if (!stale) setDays(d) }).catch(() => undefined)
+    return () => { stale = true }
+  }, [key])
   if (!game) return null
   const hours = game.playtimeMinutes / 60
   const beat = game.hltbMain ? Math.min(100, (hours / game.hltbMain) * 100) : null
@@ -46,7 +57,8 @@ export function GameDetailDialog({ game, onClose, onLaunch, launching }: {
           <Panel title="Jogo">
             <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
               <Fact label="Time played" value={minutes(game.playtimeMinutes)} />
-              <Fact label="Pra zerar (HLTB)" value={game.hltbMain ? `${Math.round(game.hltbMain)}h` : '—'} />
+              <Fact label="To beat (HLTB)" value={game.hltbMain ? `${Math.round(game.hltbMain)}h` : '—'} />
+              <Fact label="Time left" value={game.hltbMain ? (hours >= game.hltbMain ? 'Beaten' : `~${Math.ceil(game.hltbMain - hours)}h`) : '—'} />
               <Fact label="Sessions" value={game.sessions || '—'} />
               <Fact label="Avg session" value={game.avgSessionMinutes ? minutes(game.avgSessionMinutes) : '—'} />
               <Fact label="Last played" value={when(game.lastPlayed)} />
@@ -75,6 +87,25 @@ export function GameDetailDialog({ game, onClose, onLaunch, launching }: {
                 </div>
               ))}
             </div>
+          </Panel>
+
+          <Panel title="Playtime per day · 30 days" note={days ? `${minutes(days.reduce((s, d) => s + d.minutes, 0))} total` : undefined}>
+            {days && days.some(d => d.minutes > 0) ? (
+              <div className="flex h-28 items-end gap-[3px]">
+                {days.map(d => {
+                  const top = Math.max(1, ...days.map(x => x.minutes))
+                  return (
+                    <div key={d.date} className="flex-1 rounded-t-sm"
+                      title={`${new Date(d.date + 'T00:00').toLocaleDateString('en-GB')} · ${d.minutes ? minutes(d.minutes) : 'no play'}`}
+                      style={{ height: `${(d.minutes / top) * 100}%`, minHeight: 2, background: d.minutes ? 'var(--ok)' : 'var(--border)' }} />
+                  )
+                })}
+              </div>
+            ) : <p className="text-xs text-faint">No sessions seen yet. Play with SixEyes running and days fill in here.</p>}
+          </Panel>
+
+          <Panel title="Achievements">
+            <p className="text-xs text-faint">Not available yet: Steam only shares achievements through its Web API with a key, or from a public profile.</p>
           </Panel>
         </div>
       </DialogContent>
