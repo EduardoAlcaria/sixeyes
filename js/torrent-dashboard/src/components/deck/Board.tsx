@@ -85,7 +85,7 @@ export function Board({ widgets }: { widgets: Widget[] }) {
   return (
     <div className="flex flex-col gap-3.5">
       <div className="flex flex-wrap items-center gap-1.5 rounded-[var(--radius)] border bg-card px-3.5 py-2.5">
-        <span className="mr-1 text-[0.68rem] font-bold uppercase tracking-[0.06em] text-faint">Mostrar</span>
+        <span className="mr-1 text-[0.68rem] font-bold uppercase tracking-[0.06em] text-faint">Show</span>
         {order.map(id => byId.get(id)).filter(Boolean).map(w => (
           <button key={w!.id} type="button" onClick={() => toggle(w!.id)}
             className={cn('rounded-full border px-3 py-1 text-[0.74rem] transition-opacity',
