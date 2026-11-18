@@ -259,22 +259,28 @@ export function PipelineWidget({ torrents, onOpen }: { torrents: Torrent[]; onOp
   return (
     <Panel title="Install pipeline" note="download → verify → install">
       <div className="flex flex-col">
-        {items.slice(0, 5).map(t => (
+        {items.slice(0, 5).map(t => {
+          const busy = t.installStatus === 'VERIFYING' || t.installStatus === 'INSTALLING'
+          const step = t.installStatus === 'VERIFYING' ? 'Verifying files' : 'Installing'
+          return (
           <button type="button" key={t.id} onClick={() => onOpen(t.id)}
             className="flex flex-col gap-2 border-t py-3 text-left first:border-0 first:pt-0">
             <div className="flex items-center gap-2.5">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[0.9rem] font-bold">{cleanTitle(t.title)}</div>
                 <div className="font-mono text-[0.74rem] text-muted-foreground">
-                  {isDone(t) ? (t.installMessage ?? 'Queued for install') : `${t.progress.toFixed(1)}% · ${t.downloadSpeed}${t.eta ? ` · ETA ${t.eta}` : ''}`}
+                  {busy ? `${step}${t.installProgress != null ? ` · ${t.installProgress}%` : ''}${t.installEta ? ` · ${t.installEta} left` : ''}`
+                    : isDone(t) ? (t.installMessage ?? 'Queued for install') : `${t.progress.toFixed(1)}% · ${t.downloadSpeed}${t.eta ? ` · ETA ${t.eta}` : ''}`}
                 </div>
               </div>
-              {t.installStatus === 'FAILED' ? <Pill tone="bad">Failed</Pill> : <Pill tone="go">{isDone(t) ? 'Installing' : `${Math.floor(t.progress)}%`}</Pill>}
+              {t.installStatus === 'FAILED' ? <Pill tone="bad">Failed</Pill> : <Pill tone="go">{busy && t.installProgress != null ? `${t.installProgress}%` : isDone(t) ? step : `${Math.floor(t.progress)}%`}</Pill>}
             </div>
-            {!isDone(t) && <Bar value={t.progress} />}
+            {busy ? <Bar value={t.installProgress ?? 0} indeterminate={t.installProgress == null} tone="flow" />
+              : !isDone(t) && <Bar value={t.progress} />}
             <StageTrace value={stages(t)} />
           </button>
-        ))}
+          )
+        })}
         {!items.length && <p className="text-xs text-faint">Nothing in progress.</p>}
       </div>
     </Panel>
