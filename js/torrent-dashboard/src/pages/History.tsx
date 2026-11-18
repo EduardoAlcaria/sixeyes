@@ -41,25 +41,25 @@ export function HistoryPage() {
   return (
     <>
       <div className="flex flex-wrap items-baseline gap-3">
-        <h1 className="text-2xl font-extrabold">Histórico</h1>
-        <span className="text-sm text-muted-foreground">todo download e instalação, inclusive os removidos</span>
+        <h1 className="text-2xl font-extrabold">History</h1>
+        <span className="text-sm text-muted-foreground">every download and install, including removed ones</span>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        <Metric label="Downloads" value={all.length} tone="muted" hint={`${finished.length} concluídos`} />
-        <Metric label="Tempo médio" value={duration(avgDl)} tone="muted" hint="do início ao 100%" />
-        <Metric label="Instalações OK" value={okRate != null ? `${okRate}%` : '—'} tone={okRate != null && okRate < 80 ? 'down' : 'up'}
+        <Metric label="Downloads" value={all.length} tone="muted" hint={`${finished.length} finished`} />
+        <Metric label="Average time" value={duration(avgDl)} tone="muted" hint="start to 100%" />
+        <Metric label="Installs OK" value={okRate != null ? `${okRate}%` : '—'} tone={okRate != null && okRate < 80 ? 'down' : 'up'}
           hint={`${installs.length} tentativas`} />
-        <Metric label="Baixado no total" value={bytes(all.reduce((s, h) => s + (h.totalDownloaded ?? 0), 0))} tone="muted" />
+        <Metric label="Downloaded in total" value={bytes(all.reduce((s, h) => s + (h.totalDownloaded ?? 0), 0))} tone="muted" />
       </div>
 
       <div className="flex flex-wrap items-center gap-2.5 rounded-[var(--radius)] border bg-card p-3">
         <label className="flex min-w-[180px] flex-1 items-center gap-2 rounded-lg border bg-background px-3 py-2 text-muted-foreground">
           <Search className="size-4" />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar no histórico…" aria-label="Buscar no histórico"
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search history…" aria-label="Search history"
             className="w-full bg-transparent text-foreground outline-none" />
         </label>
-        {([['all', 'Tudo'], ['installed', 'Instalados'], ['failed', 'Falhas'], ['downloading', 'Em andamento'], ['removed', 'Removidos']] as [Filter, string][]).map(([f, label]) => (
+        {([['all', 'All'], ['installed', 'Installed'], ['failed', 'Failed'], ['downloading', 'In progress'], ['removed', 'Removed']] as [Filter, string][]).map(([f, label]) => (
           <button key={f} type="button" onClick={() => setFilter(f)}
             className={cn('rounded-full border px-3 py-1 text-[0.76rem]', filter === f ? 'border-primary bg-primary/20 text-foreground' : 'text-muted-foreground')}>
             {label}
@@ -72,8 +72,8 @@ export function HistoryPage() {
           <table className="w-full min-w-[860px] text-[0.82rem] [&_td]:px-2 [&_th]:px-2">
             <thead className="text-left text-[0.64rem] uppercase tracking-[0.05em] text-faint">
               <tr>
-                <th className="py-1.5">Jogo</th><th>Tamanho</th><th className="text-right">Seeds máx</th>
-                <th className="text-right">Vel. média</th><th className="text-right">Pico</th><th>Duração</th>
+                <th className="py-1.5">Game</th><th>Size</th><th className="text-right">Peak seeds</th>
+                <th className="text-right">Avg speed</th><th className="text-right">Peak</th><th>Duration</th>
                 <th>Verif.</th><th>Install · exit</th><th className="text-right">Ratio</th><th>Quando</th><th>Status</th>
               </tr>
             </thead>
@@ -93,7 +93,7 @@ export function HistoryPage() {
                     <td className={cn('font-mono', h.installExitCode != null && h.installExitCode !== 0 && 'text-bad')}>
                       {h.installExitCode != null
                         ? `${duration(between(h.installStartedAt, h.installFinishedAt))} · ${h.installExitCode}`
-                        : h.installStatus === 'FAILED' ? 'não rodou' : '—'}
+                        : h.installStatus === 'FAILED' ? 'did not run' : '—'}
                     </td>
                     <td className="text-right font-mono">{ratio != null ? ratio.toFixed(2) : '—'}</td>
                     <td className="font-mono">{when(h.completedAt ?? h.addedAt)}</td>
@@ -103,7 +103,7 @@ export function HistoryPage() {
               })}
             </tbody>
           </table>
-          {!shown.length && <p className="py-8 text-center text-xs text-faint">{data ? 'Nada aqui.' : 'Carregando…'}</p>}
+          {!shown.length && <p className="py-8 text-center text-xs text-faint">{data ? 'Nada aqui.' : 'Loading…'}</p>}
         </div>
       </Panel>
 
