@@ -326,3 +326,19 @@ export interface PlayDay {
   date: string
   minutes: number
 }
+
+export interface Achievement {
+  name: string
+  description: string
+  unlocked: boolean
+  unlockedAt: string | null
+  icon: string
+}
+
+/** From the public Steam profile of the account signed in on the PC. */
+export interface Achievements {
+  unlocked: number
+  total: number
+  note: string | null
+  list: Achievement[]
+}
