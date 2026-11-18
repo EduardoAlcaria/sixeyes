@@ -52,7 +52,7 @@ public class DeviceService {
                     } else {
                         log.warn("New device awaiting approval: {}", device.getLabel());
                         events.record("DEVICE_PENDING", com.sixeyes.model.AppEvent.Level.WARN,
-                                "Novo dispositivo aguardando aprovação: " + device.getLabel());
+                                "New device waiting for approval: " + device.getLabel());
                     }
                     return repo.save(device);
                 });
