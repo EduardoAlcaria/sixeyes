@@ -25,6 +25,7 @@ class CatalogServiceTest {
 
     @Mock CatalogGameRepository repo;
     @Mock FitgirlApiService fitgirl;
+    @Mock IgdbService igdb;
     @InjectMocks CatalogService service;
 
     @Test
@@ -35,6 +36,19 @@ class CatalogServiceTest {
         Page<CatalogGameResponse> result = service.search(" cyber ", 0, 24);
 
         assertThat(result.getContent()).extracting(CatalogGameResponse::title).containsExactly("Cyberpunk 2077");
+    }
+
+    @Test
+    void search_misspelledQueryFallsBackToIgdbNames() {
+        CatalogGame game = makeGame("Mass Effect: Legendary Edition", "https://fitgirl-repacks.site/mass-effect/");
+        when(repo.searchByTitle(eq("mass efect"), any())).thenReturn(new PageImpl<>(List.of()));
+        when(igdb.suggestNames("mass efect")).thenReturn(List.of("Mass Effect"));
+        when(igdb.stripSuffixes("Mass Effect")).thenReturn("Mass Effect");
+        when(repo.searchByTitle(eq("Mass Effect"), any())).thenReturn(new PageImpl<>(List.of(game)));
+
+        Page<CatalogGameResponse> result = service.search("mass efect", 0, 24);
+
+        assertThat(result.getContent()).extracting(CatalogGameResponse::title).containsExactly("Mass Effect: Legendary Edition");
     }
 
     @Test
