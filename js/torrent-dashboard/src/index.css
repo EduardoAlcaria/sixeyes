@@ -181,3 +181,10 @@
     background: var(--muted-foreground);
   }
 }
+
+/* The stage being worked on breathes slowly; finished ones stay solid. */
+@keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+.animate-breathe { animation: breathe 2.2s ease-in-out infinite; }
+/* Unknown-length work (running setup.exe): a block sliding along the bar. */
+@keyframes slide { 0% { left: -35%; } 100% { left: 100%; } }
+.animate-slide { animation: slide 1.6s ease-in-out infinite; }
