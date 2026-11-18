@@ -26,6 +26,9 @@ export interface Torrent {
   wasted: number | null
   ratio: number | null
   installedDir: string | null
+  coverUrl: string | null
+  /** 0-100 while verifying; null when the length of the work is unknown. */
+  installProgress: number | null
 }
 
 export type TorrentStatus = 'Downloading' | 'Seeding' | 'Paused' | 'Stopped' | 'Error'
@@ -306,4 +309,12 @@ export interface CatalogPage {
   totalPages: number
   number: number
   size: number
+}
+
+/** A Steam library entry that is not installed on this PC. */
+export interface OwnedGame {
+  appId: string
+  name: string
+  playtimeMinutes: number
+  lastPlayed: string | null
 }
