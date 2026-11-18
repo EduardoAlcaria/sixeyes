@@ -113,16 +113,39 @@ public class InsightController {
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(7)).cachePrivate()).body(img);
     }
 
+    private static byte[] get(String url) {
+        try {
+            HttpResponse<byte[]> r = HTTP.send(HttpRequest.newBuilder(URI.create(url))
+                    .timeout(Duration.ofSeconds(8)).build(), HttpResponse.BodyHandlers.ofByteArray());
+            return r.statusCode() == 200 ? r.body() : new byte[0];
+        } catch (Exception e) {
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            return new byte[0];
+        }
+    }
+
+    /** Old apps keep art at a fixed path; newer ones (PEAK) hide it behind a per-asset hash only the store API knows. */
     private static byte[] fetchArt(String appId, boolean portrait) {
         String base = "https://cdn.cloudflare.steamstatic.com/steam/apps/" + appId + "/";
         for (String file : portrait ? List.of("library_600x900.jpg", "header.jpg") : List.of("header.jpg")) {
-            try {
-                HttpResponse<byte[]> r = HTTP.send(HttpRequest.newBuilder(URI.create(base + file))
-                        .timeout(Duration.ofSeconds(8)).build(), HttpResponse.BodyHandlers.ofByteArray());
-                if (r.statusCode() == 200 && r.body().length > 0) return r.body();
-            } catch (Exception e) {
-                if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            byte[] b = get(base + file);
+            if (b.length > 0) return b;
+        }
+        byte[] hashed = get("https://api.steampowered.com/IStoreBrowseService/GetItems/v1?input_json="
+                + java.net.URLEncoder.encode("{\"ids\":[{\"appid\":" + appId + "}],\"context\":{\"language\":\"english\",\"country_code\":\"US\"},"
+                + "\"data_request\":{\"include_assets\":true}}", java.nio.charset.StandardCharsets.UTF_8));
+        if (hashed.length == 0) return hashed;
+        try {
+            var assets = new com.fasterxml.jackson.databind.ObjectMapper().readTree(hashed)
+                    .path("response").path("store_items").path(0).path("assets");
+            for (String key : portrait ? List.of("library_capsule", "header") : List.of("header")) {
+                String path = assets.path(key).asText("");
+                if (path.isEmpty()) continue;
+                byte[] b = get("https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/" + appId + "/" + path);
+                if (b.length > 0) return b;
             }
+        } catch (Exception ignored) {
+            // unreadable store response: fall through to "no art"
         }
         return new byte[0];
     }
